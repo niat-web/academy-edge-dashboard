@@ -12,40 +12,83 @@ import { NextResponse } from 'next/server'
  * Or use this endpoint with a secret key for security
  */
 export async function GET(request: Request) {
-  // Optional: Add authentication
+  // Vercel Cron Jobs send a special header - verify it
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
-
+  
+  // For Vercel Cron, check the cron secret if set
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ status: 'error', message: 'Unauthorized' }, { status: 401 })
+    // Allow Vercel's internal cron calls (they don't send auth header)
+    // But require auth for external calls
+    const isVercelCron = request.headers.get('user-agent')?.includes('vercel-cron') ||
+                         request.headers.get('x-vercel-cron') === '1'
+    
+    if (!isVercelCron && authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ status: 'error', message: 'Unauthorized' }, { status: 401 })
+    }
   }
 
   try {
     const startTime = Date.now()
     console.log('[CRON] Starting scheduled sync...')
 
-    // 1. Sync all data
-    const syncResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/sync/all`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-    const syncData = await syncResponse.json()
+    // Call sync functions directly instead of HTTP requests (more efficient and reliable)
+    let syncData: any
+    try {
+      console.log('[CRON] Importing sync/all module...')
+      const syncAllModule = await import('../../sync/all/route')
+      console.log('[CRON] Calling POST function...')
+      const syncResponse = await syncAllModule.POST()
+      console.log('[CRON] Response received, type:', typeof syncResponse)
+      
+      // Handle NextResponse properly
+      if (syncResponse && typeof syncResponse.json === 'function') {
+        console.log('[CRON] Parsing JSON response...')
+        syncData = await syncResponse.json()
+      } else {
+        console.error('[CRON] Invalid response format:', syncResponse)
+        syncData = { status: 'error', message: 'Invalid response from sync function' }
+      }
+      
+      console.log('[CRON] Data sync result:', syncData?.status)
+    } catch (error: any) {
+      console.error('[CRON] Error syncing data:', error)
+      console.error('[CRON] Error name:', error?.name)
+      console.error('[CRON] Error message:', error?.message)
+      console.error('[CRON] Error stack:', error?.stack)
+      syncData = { status: 'error', message: error?.message || 'Sync failed' }
+    }
 
-    // 2. Generate verdicts (only if data sync was successful)
+    // Generate verdicts (only if data sync was successful)
     let verdictData = null
     if (syncData.status === 'ok') {
-      const verdictResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/sync/verdicts`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+      // Wait 5 seconds before generating verdicts to avoid rate limits
+      await new Promise((resolve) => setTimeout(resolve, 5000))
+      
+      try {
+        console.log('[CRON] Importing verdicts module...')
+        const verdictModule = await import('../../sync/verdicts/route')
+        console.log('[CRON] Calling verdict POST function...')
+        const verdictResponse = await verdictModule.POST()
+        console.log('[CRON] Verdict response received, type:', typeof verdictResponse)
+        
+        // Handle NextResponse properly
+        if (verdictResponse && typeof verdictResponse.json === 'function') {
+          console.log('[CRON] Parsing verdict JSON response...')
+          verdictData = await verdictResponse.json()
+        } else {
+          console.error('[CRON] Invalid verdict response format:', verdictResponse)
+          verdictData = { status: 'error', message: 'Invalid response from verdict function' }
         }
-      )
-      verdictData = await verdictResponse.json()
+        
+        console.log('[CRON] Verdict generation result:', verdictData?.status)
+      } catch (error: any) {
+        console.error('[CRON] Error generating verdicts:', error)
+        console.error('[CRON] Verdict error name:', error?.name)
+        console.error('[CRON] Verdict error message:', error?.message)
+        console.error('[CRON] Verdict error stack:', error?.stack)
+        verdictData = { status: 'error', message: error?.message || 'Verdict generation failed' }
+      }
     }
 
     const duration = Date.now() - startTime
