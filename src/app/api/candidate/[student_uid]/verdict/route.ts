@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { generateVerdict } from '@/lib/gemini'
 
-type Recommendation = 'Strong Hire' | 'Hire' | 'Weak Hire' | 'Low Hire'
+type Recommendation = 'Strong Hire' | 'Hire' | 'Weak Hire'
 
 interface FinalVerdict {
   summary: string
@@ -87,12 +87,12 @@ You MUST respond ONLY with a valid JSON object in the following exact format:
   "summary": "string, 3-4 sentences overall summary",
   "strengths": ["bullet point 1", "bullet point 2", "..."],
   "improvements": ["bullet point 1", "bullet point 2", "..."],
-  "recommendation": "Strong Hire" | "Hire" | "Weak Hire" | "Low Hire",
+  "recommendation": "Strong Hire" | "Hire" | "Weak Hire",
   "justification": "short paragraph justifying the recommendation"
 }
 
 Rules:
-- Choose exactly ONE recommendation from: Strong Hire, Hire, Weak Hire, Low Hire.
+- Choose exactly ONE recommendation from: Strong Hire, Hire, Weak Hire.
 - Do not include any additional fields.
 - Do not include any introductory or closing text outside the JSON.
 
@@ -131,7 +131,6 @@ ${JSON.stringify(tr2Data, null, 2)}
       'Strong Hire',
       'Hire',
       'Weak Hire',
-      'Low Hire',
     ]
 
     const normalizeStringArray = (value: any): string[] => {
@@ -148,7 +147,7 @@ ${JSON.stringify(tr2Data, null, 2)}
     const strengths: string[] = normalizeStringArray(parsed.strengths)
     const improvements: string[] = normalizeStringArray(parsed.improvements)
 
-    let recommendation: Recommendation = 'Low Hire'
+    let recommendation: Recommendation = 'Weak Hire'
     if (allowedRecommendations.includes(parsed.recommendation)) {
       recommendation = parsed.recommendation as Recommendation
     }

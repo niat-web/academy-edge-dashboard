@@ -151,12 +151,12 @@ You MUST respond ONLY with a valid JSON object in the following exact format:
   "summary": "string, 3-4 sentences overall summary",
   "strengths": ["bullet point 1", "bullet point 2", "..."],
   "improvements": ["bullet point 1", "bullet point 2", "..."],
-  "recommendation": "Strong Hire" | "Hire" | "Weak Hire" | "Low Hire",
+  "recommendation": "Strong Hire" | "Hire" | "Weak Hire",
   "justification": "short paragraph justifying the recommendation"
 }
 
 Rules:
-- Choose exactly ONE recommendation from: Strong Hire, Hire, Weak Hire, Low Hire.
+- Choose exactly ONE recommendation from: Strong Hire, Hire, Weak Hire.
 - Do not include any additional fields.
 - Do not include any introductory or closing text outside the JSON.
 
@@ -194,7 +194,7 @@ ${JSON.stringify(tr2Data, null, 2)}
     }
 
     // Normalize data
-    const allowedRecommendations = ['Strong Hire', 'Hire', 'Weak Hire', 'Low Hire']
+    const allowedRecommendations = ['Strong Hire', 'Hire', 'Weak Hire']
 
     const normalizeStringArray = (value: any): string[] => {
       if (!value) return []
@@ -209,7 +209,7 @@ ${JSON.stringify(tr2Data, null, 2)}
     const strengths: string[] = normalizeStringArray(parsed.strengths)
     const improvements: string[] = normalizeStringArray(parsed.improvements)
 
-    let recommendation: string = 'Low Hire'
+    let recommendation: string = 'Weak Hire'
     if (allowedRecommendations.includes(parsed.recommendation)) {
       recommendation = parsed.recommendation
     }

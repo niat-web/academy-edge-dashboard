@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 
-type Recommendation = 'Strong Hire' | 'Hire' | 'Weak Hire' | 'Low Hire'
+type Recommendation = 'Strong Hire' | 'Hire' | 'Weak Hire'
 
 interface FinalVerdict {
   summary: string

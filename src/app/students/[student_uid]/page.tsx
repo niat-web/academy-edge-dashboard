@@ -34,7 +34,7 @@ interface Verdict {
   summary?: string
   strengths?: string[]
   improvements?: string[]
-  recommendation?: 'Strong Hire' | 'Hire' | 'Weak Hire' | 'Low Hire'
+  recommendation?: 'Strong Hire' | 'Hire' | 'Weak Hire'
   generated_at?: Date | string
   model?: string
   // Legacy fields for backward compatibility
@@ -1039,9 +1039,9 @@ export default function StudentProfile() {
                     <div className="flex items-center gap-6">
                       {(() => {
                         // Use new AI recommendation format if available, fallback to legacy decision
-                        const recommendation = verdict.recommendation || verdict.decision || 'Low Hire'
+                        const recommendation = verdict.recommendation || verdict.decision || 'Weak Hire'
                         const isAccepted = recommendation === 'Strong Hire' || recommendation === 'Hire' || recommendation === 'Accepted'
-                        const isRejected = recommendation === 'Low Hire' || recommendation === 'Rejected'
+                        const isRejected = recommendation === 'Rejected'
                         const isWeakHire = recommendation === 'Weak Hire'
                         
                         return (
