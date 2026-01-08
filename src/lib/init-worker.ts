@@ -2,7 +2,12 @@
  * Initialize background worker on server startup
  * This file is imported in the app to start the worker
  * Works in both development (npm run dev) and production (npm start)
+ * 
+ * NOTE: This module does NOTHING on Vercel - use Vercel Cron Jobs instead
  */
+
+// CRITICAL: Exit early if on Vercel - don't even define functions
+const isVercel = !!(typeof process !== 'undefined' && (process.env.VERCEL || process.env.VERCEL_ENV))
 
 let workerInitialized = false
 
@@ -39,10 +44,8 @@ export function initWorker() {
 // Auto-initialize when this module is imported (server-side only)
 // Only run during runtime, not during build
 // Skip on Vercel (use Vercel Cron Jobs instead)
-if (typeof window === 'undefined' && typeof process !== 'undefined') {
-  // Check if we're on Vercel (check both VERCEL and VERCEL_ENV)
-  const isVercel = !!(process.env.VERCEL || process.env.VERCEL_ENV)
-  
+// CRITICAL: Only run auto-initialization if NOT on Vercel
+if (!isVercel && typeof window === 'undefined' && typeof process !== 'undefined') {
   // Check if we're in build mode
   // During build, Next.js doesn't have a running server, so we skip worker initialization
   const isBuildTime = 
@@ -51,9 +54,8 @@ if (typeof window === 'undefined' && typeof process !== 'undefined') {
     process.argv.includes('build') ||
     process.env.npm_lifecycle_event === 'build'
   
-  // Don't run background worker on Vercel (use Vercel Cron Jobs instead)
   // Don't run during build
-  if (!isVercel && !isBuildTime) {
+  if (!isBuildTime) {
     // Use setTimeout to ensure Next.js is fully initialized
     if (process.env.NODE_ENV === 'production') {
       // In production (npm start), initialize immediately
@@ -64,10 +66,9 @@ if (typeof window === 'undefined' && typeof process !== 'undefined') {
         initWorker()
       }, 2000)
     }
-  } else if (isVercel) {
-    console.log('[INIT] Skipping background worker on Vercel - using Vercel Cron Jobs instead')
   } else {
     console.log('[INIT] Skipping background worker initialization during build')
   }
 }
+// On Vercel, do absolutely nothing - Vercel Cron Jobs will handle the sync
 
