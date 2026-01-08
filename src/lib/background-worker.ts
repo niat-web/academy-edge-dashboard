@@ -8,6 +8,12 @@ let syncInterval: NodeJS.Timeout | null = null
 let isRunning = false
 
 async function runSync() {
+  // Don't run on Vercel - use Vercel Cron Jobs instead
+  if (process.env.VERCEL) {
+    console.log('[WORKER] Skipping background worker on Vercel - using Vercel Cron Jobs instead')
+    return
+  }
+
   if (isRunning) {
     console.log('[WORKER] Sync already running, skipping...')
     return

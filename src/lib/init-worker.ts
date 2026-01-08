@@ -31,7 +31,11 @@ export function initWorker() {
 
 // Auto-initialize when this module is imported (server-side only)
 // Only run during runtime, not during build
+// Skip on Vercel (use Vercel Cron Jobs instead)
 if (typeof window === 'undefined' && typeof process !== 'undefined') {
+  // Check if we're on Vercel
+  const isVercel = !!process.env.VERCEL
+  
   // Check if we're in build mode
   // During build, Next.js doesn't have a running server, so we skip worker initialization
   const isBuildTime = 
@@ -40,7 +44,9 @@ if (typeof window === 'undefined' && typeof process !== 'undefined') {
     process.argv.includes('build') ||
     process.env.npm_lifecycle_event === 'build'
   
-  if (!isBuildTime) {
+  // Don't run background worker on Vercel (use Vercel Cron Jobs instead)
+  // Don't run during build
+  if (!isVercel && !isBuildTime) {
     // Use setTimeout to ensure Next.js is fully initialized
     if (process.env.NODE_ENV === 'production') {
       // In production (npm start), initialize immediately
@@ -51,6 +57,8 @@ if (typeof window === 'undefined' && typeof process !== 'undefined') {
         initWorker()
       }, 2000)
     }
+  } else if (isVercel) {
+    console.log('[INIT] Skipping background worker on Vercel - using Vercel Cron Jobs instead')
   } else {
     console.log('[INIT] Skipping background worker initialization during build')
   }
