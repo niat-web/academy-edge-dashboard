@@ -102,11 +102,27 @@ export async function GET(request: Request) {
       timestamp: new Date().toISOString(),
     })
   } catch (error: any) {
-    console.error('[CRON] Error:', error)
+    console.error('[CRON] Top-level error:', error)
+    console.error('[CRON] Error name:', error?.name)
+    console.error('[CRON] Error message:', error?.message)
+    console.error('[CRON] Error stack:', error?.stack)
+    console.error('[CRON] Error cause:', error?.cause)
+    
+    // Provide more detailed error message
+    let errorMessage = error?.message || 'Cron job failed'
+    if (error?.message?.includes('fetch')) {
+      errorMessage = `Network error: ${error.message}. This might be due to Google Sheets API connection issues or missing environment variables.`
+    }
+    
     return NextResponse.json(
       {
         status: 'error',
-        message: error.message || 'Cron job failed',
+        message: errorMessage,
+        errorDetails: process.env.NODE_ENV === 'development' ? {
+          name: error?.name,
+          message: error?.message,
+          stack: error?.stack,
+        } : undefined,
         timestamp: new Date().toISOString(),
       },
       { status: 500 }
