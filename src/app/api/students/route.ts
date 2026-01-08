@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     const client = await clientPromise
     const db = client.db('student_dashboard')
 
-    // Build query for search
+    // Build query for searching data
     const query: any = {}
     
     // Search by name or UID
