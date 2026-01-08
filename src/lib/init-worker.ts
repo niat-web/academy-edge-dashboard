@@ -7,6 +7,13 @@
 let workerInitialized = false
 
 export function initWorker() {
+  // CRITICAL: Don't initialize on Vercel - use Vercel Cron Jobs instead
+  // Check this FIRST before doing anything else
+  if (process.env.VERCEL || process.env.VERCEL_ENV) {
+    console.log('[INIT] Skipping background worker on Vercel - using Vercel Cron Jobs instead')
+    return
+  }
+
   if (workerInitialized) {
     return
   }
@@ -33,8 +40,8 @@ export function initWorker() {
 // Only run during runtime, not during build
 // Skip on Vercel (use Vercel Cron Jobs instead)
 if (typeof window === 'undefined' && typeof process !== 'undefined') {
-  // Check if we're on Vercel
-  const isVercel = !!process.env.VERCEL
+  // Check if we're on Vercel (check both VERCEL and VERCEL_ENV)
+  const isVercel = !!(process.env.VERCEL || process.env.VERCEL_ENV)
   
   // Check if we're in build mode
   // During build, Next.js doesn't have a running server, so we skip worker initialization

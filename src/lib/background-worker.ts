@@ -8,8 +8,10 @@ let syncInterval: NodeJS.Timeout | null = null
 let isRunning = false
 
 async function runSync() {
-  // Don't run on Vercel - use Vercel Cron Jobs instead
-  if (process.env.VERCEL) {
+  // CRITICAL: Don't run on Vercel - use Vercel Cron Jobs instead
+  // Check this FIRST before doing anything else
+  // Vercel sets both VERCEL and VERCEL_ENV environment variables
+  if (process.env.VERCEL || process.env.VERCEL_ENV) {
     console.log('[WORKER] Skipping background worker on Vercel - using Vercel Cron Jobs instead')
     return
   }
@@ -96,6 +98,14 @@ async function runSync() {
  * Start the background worker
  */
 export function startBackgroundWorker() {
+  // CRITICAL: Don't start on Vercel - use Vercel Cron Jobs instead
+  // Check this FIRST before doing anything else
+  // Vercel sets both VERCEL and VERCEL_ENV environment variables
+  if (process.env.VERCEL || process.env.VERCEL_ENV) {
+    console.log('[WORKER] Skipping background worker on Vercel - using Vercel Cron Jobs instead')
+    return
+  }
+
   if (syncInterval) {
     console.log('[WORKER] Background worker already running')
     return

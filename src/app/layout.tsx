@@ -4,10 +4,16 @@ import "./globals.css";
 
 // Only initialize background worker if not on Vercel
 // On Vercel, we use Vercel Cron Jobs instead
-if (typeof window === 'undefined' && !process.env.VERCEL) {
+// This is a server-side only check, so it's safe to do at module level
+if (
+  typeof window === 'undefined' && 
+  typeof process !== 'undefined' && 
+  !process.env.VERCEL && 
+  !process.env.VERCEL_ENV
+) {
   // Dynamic import to avoid loading on Vercel
   import('@/lib/init-worker').catch((err) => {
-    console.warn('Failed to load background worker:', err);
+    // Silently fail - worker is optional
   });
 }
 
