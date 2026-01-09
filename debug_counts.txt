@@ -1,0 +1,6 @@
+DSA - student_score: 67
+DSA - section_score: 67
+Coding - student_score: 67
+Coding - section_score: 67
+Logical - student_score: 2
+Logical - section_score: 2

@@ -11,27 +11,57 @@ export async function GET(
     const client = await clientPromise
     const db = client.db('student_dashboard')
 
-    // Fetch student from all collections
-    const [tr2Student, tr1Student, assessmentStudent] = await Promise.all([
-      db.collection('students-tr2').findOne({ student_uid }),
-      db.collection('students-tr1').findOne({ student_uid }),
-      db.collection('students').findOne({ student_uid }),
-    ])
+    // Use aggregation pipeline with $lookup to fetch all data in a single query
+    const pipeline = [
+      { $match: { student_uid } },
+      {
+        $lookup: {
+          from: 'students-tr1',
+          localField: 'student_uid',
+          foreignField: 'student_uid',
+          as: 'tr1_data'
+        }
+      },
+      {
+        $lookup: {
+          from: 'students',
+          localField: 'student_uid',
+          foreignField: 'student_uid',
+          as: 'assessment_data'
+        }
+      },
+      {
+        $project: {
+          student_uid: 1,
+          basic_info: 1,
+          tr2: 1,
+          'progress.tr2_completed': 1,
+          'timestamps.created_at': 1,
+          'timestamps.updated_at': 1,
+          tr1: { $arrayElemAt: ['$tr1_data', 0] },
+          assessment: { $arrayElemAt: ['$assessment_data', 0] }
+        }
+      }
+    ]
 
-    if (!tr2Student) {
+    const results = await db.collection('students-tr2').aggregate(pipeline).toArray()
+
+    if (!results || results.length === 0) {
       return NextResponse.json(
         { status: 'error', message: 'Student not found' },
         { status: 404 }
       )
     }
 
+    const studentData = results[0]
+
     // Calculate progress
     const progress = {
       information: true, // Always true if student exists
-      assessment: !!assessmentStudent?.progress?.assessment_completed,
-      tr1: !!tr1Student?.progress?.tr1_completed,
-      tr2: !!tr2Student?.progress?.tr2_completed,
-      completed: false, // Will be calculated below
+      assessment: !!studentData.assessment?.progress?.assessment_completed,
+      tr1: !!studentData.tr1?.progress?.tr1_completed,
+      tr2: !!studentData.progress?.tr2_completed,
+      completed: false,
     }
 
     // Completed if all 3 assessments are done
@@ -44,18 +74,18 @@ export async function GET(
       status: 'ok',
       data: {
         student_uid,
-        basic_info: tr2Student.basic_info || {},
-        tr2: tr2Student.tr2 || {},
-        tr1: tr1Student?.tr1 || {},
-        assessment: assessmentStudent?.assessment || {},
+        basic_info: studentData.basic_info || {},
+        tr2: studentData.tr2 || {},
+        tr1: studentData.tr1?.tr1 || {},
+        assessment: studentData.assessment?.assessment || {},
         progress: {
           ...progress,
           percentage: progressPercentage,
           completedCount,
         },
         timestamps: {
-          created_at: tr2Student.timestamps?.created_at,
-          updated_at: tr2Student.timestamps?.updated_at,
+          created_at: studentData.timestamps?.created_at,
+          updated_at: studentData.timestamps?.updated_at,
         },
       },
     })
@@ -67,4 +97,3 @@ export async function GET(
     )
   }
 }
-

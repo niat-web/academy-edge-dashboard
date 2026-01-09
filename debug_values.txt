@@ -1,0 +1,3 @@
+UID: acdd6240-ed60-46f9-b44f-f9c5e5347170
+DSA Student: 5 (Type: string)
+DSA Section: 10 (Type: string)

@@ -1,0 +1,21 @@
+Results count: 5
+--- Doc 0 ---
+UID: acdd6240-ed60-46f9-b44f-f9c5e5347170
+assessment_data length: 1
+dsa_student_score: 5
+--- Doc 1 ---
+UID: d2236046-cbd9-4041-9d3a-8d4598d5854c
+assessment_data length: 1
+dsa_student_score: 6
+--- Doc 2 ---
+UID: 14cdc16e-fe28-4a3b-99ee-09662d335374
+assessment_data length: 0
+assessment_data is empty
+--- Doc 3 ---
+UID: 7ff7d20c-9da4-433b-91f5-f4f09512af20
+assessment_data length: 1
+dsa_student_score: 5
+--- Doc 4 ---
+UID: 6f2fcd47-1729-4a9a-9ac9-d976f60b6c21
+assessment_data length: 1
+dsa_student_score: 6

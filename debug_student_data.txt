@@ -1,0 +1,28 @@
+Student Doc (students): Found
+Full Doc Keys: ["_id","student_uid","assessment","basic_info","progress","timestamps","final_verdict"]
+Assessment: {
+  "scores": {
+    "student_assessment_score": "127.77",
+    "coding_student_score": "90.77",
+    "coding_section_score": "120",
+    "dsa_student_score": "5",
+    "dsa_section_score": "10",
+    "cs_fundamentals_student_score": "32",
+    "cs_fundamentals_section_score": "40"
+  },
+  "report_links": "https://config.topin.tech/candidate-statistics/0465f9d9-ed0f-402e-8d4f-d9d07688f124/abaa6722-a4ac-4475-9299-a107f457c4fc",
+  "raw_data": {
+    "College Name": "NIT ALLAHABAD",
+    "Date of Assessment": "Dec 2, 2025",
+    "Contact no.": "8353919504",
+    "Email": "bhavyasachan075@gmail.com",
+    "Score Criteria Selection Status": "SELECTED",
+    "Coding Time Spent(in Mins)": "83.12",
+    "Coding Section Duration(in Mins)": "90",
+    "DSA Time Spent(in Mins)": "8.13",
+    "DSA Section Duration(in Mins)": "15",
+    "CS Fundamentals Time Spent(in Mins)": "20.8",
+    "CS Fundamentals Section Duration(in Mins)": "30"
+  }
+}
+TR2 Doc: Found

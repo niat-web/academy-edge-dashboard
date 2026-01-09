@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
 interface Student {
@@ -31,10 +31,28 @@ interface Pagination {
   totalPages: number
 }
 
+// Custom hook for debouncing
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value)
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value)
+    }, delay)
+
+    return () => {
+      clearTimeout(handler)
+    }
+  }, [value, delay])
+
+  return debouncedValue
+}
+
 export default function Dashboard() {
   const router = useRouter()
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
     limit: 25,
@@ -44,12 +62,21 @@ export default function Dashboard() {
   const [colleges, setColleges] = useState<string[]>([])
   const [availableEvaluations, setAvailableEvaluations] = useState<string[]>([])
   const [availableInterviews, setAvailableInterviews] = useState<string[]>([])
-  
+  const [availableVerdicts, setAvailableVerdicts] = useState<string[]>([])
+
   // Search states
   const [nameUidSearch, setNameUidSearch] = useState('')
   const [collegeSearch, setCollegeSearch] = useState('')
   const [evaluationSearch, setEvaluationSearch] = useState('')
   const [interviewSearch, setInterviewSearch] = useState('')
+  const [verdictSearch, setVerdictSearch] = useState('')
+
+  // Debounced search values (300ms delay)
+  const debouncedNameUidSearch = useDebounce(nameUidSearch, 300)
+  const debouncedCollegeSearch = useDebounce(collegeSearch, 300)
+  const debouncedEvaluationSearch = useDebounce(evaluationSearch, 300)
+  const debouncedInterviewSearch = useDebounce(interviewSearch, 300)
+  const debouncedVerdictSearch = useDebounce(verdictSearch, 300)
 
   const fetchStudents = async (page: number = 1, limit: number = pagination.limit) => {
     setLoading(true)
@@ -58,17 +85,20 @@ export default function Dashboard() {
         page: page.toString(),
         limit: limit.toString(),
       })
-      if (nameUidSearch) {
-        params.append('search', nameUidSearch)
+      if (debouncedNameUidSearch) {
+        params.append('search', debouncedNameUidSearch)
       }
-      if (collegeSearch) {
-        params.append('college', collegeSearch)
+      if (debouncedCollegeSearch) {
+        params.append('college', debouncedCollegeSearch)
       }
-      if (evaluationSearch) {
-        params.append('evaluation', evaluationSearch)
+      if (debouncedEvaluationSearch) {
+        params.append('evaluation', debouncedEvaluationSearch)
       }
-      if (interviewSearch) {
-        params.append('interview', interviewSearch)
+      if (debouncedInterviewSearch) {
+        params.append('interview', debouncedInterviewSearch)
+      }
+      if (debouncedVerdictSearch) {
+        params.append('verdict', debouncedVerdictSearch)
       }
 
       const response = await fetch(`/api/students?${params}`)
@@ -86,6 +116,9 @@ export default function Dashboard() {
         if (data.availableInterviews) {
           setAvailableInterviews(data.availableInterviews)
         }
+        if (data.availableVerdicts) {
+          setAvailableVerdicts(data.availableVerdicts)
+        }
       }
     } catch (error) {
       console.error('Error fetching students:', error)
@@ -94,9 +127,58 @@ export default function Dashboard() {
     }
   }
 
+  const handleExportToExcel = async () => {
+    setExporting(true)
+    try {
+      const params = new URLSearchParams()
+      if (debouncedNameUidSearch) {
+        params.append('search', debouncedNameUidSearch)
+      }
+      if (debouncedCollegeSearch) {
+        params.append('college', debouncedCollegeSearch)
+      }
+      if (debouncedEvaluationSearch) {
+        params.append('evaluation', debouncedEvaluationSearch)
+      }
+      if (debouncedInterviewSearch) {
+        params.append('interview', debouncedInterviewSearch)
+      }
+      if (debouncedVerdictSearch) {
+        params.append('verdict', debouncedVerdictSearch)
+      }
+
+      const response = await fetch(`/api/students/export?${params}`)
+
+      if (!response.ok) {
+        throw new Error('Export failed')
+      }
+
+      // Get the blob from response
+      const blob = await response.blob()
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const date = new Date().toISOString().split('T')[0]
+      a.download = `students-export-${date}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+
+      // Cleanup
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (error) {
+      console.error('Error exporting data:', error)
+      alert('Failed to export data. Please try again.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   useEffect(() => {
     fetchStudents(1, pagination.limit)
-  }, [nameUidSearch, collegeSearch, evaluationSearch, interviewSearch, pagination.limit])
+  }, [debouncedNameUidSearch, debouncedCollegeSearch, debouncedEvaluationSearch, debouncedInterviewSearch, debouncedVerdictSearch, pagination.limit])
 
   const handlePageChange = (newPage: number) => {
     fetchStudents(newPage, pagination.limit)
@@ -154,7 +236,7 @@ export default function Dashboard() {
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">
                 Student Portfolio
-      </h1>
+              </h1>
               <p className="text-gray-600">
                 Discover and evaluate talented candidates
               </p>
@@ -164,11 +246,31 @@ export default function Dashboard() {
                 <p className="text-gray-500 text-sm font-medium">Total Students</p>
                 <p className="text-2xl font-bold text-gray-900">{pagination.total}</p>
               </div>
+              <button
+                onClick={handleExportToExcel}
+                disabled={exporting || loading}
+                className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                title={nameUidSearch || collegeSearch || evaluationSearch || interviewSearch || verdictSearch ? "Export filtered students" : "Export all students"}
+              >
+                {exporting ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Exporting...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>Export to Excel</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
 
           {/* Search Bars */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
             {/* Name/UID Search */}
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -248,10 +350,31 @@ export default function Dashboard() {
                 </svg>
               </div>
             </div>
+
+            {/* Final Verdict Search with Dropdown */}
+            <div className="relative">
+              <select
+                value={verdictSearch}
+                onChange={(e) => setVerdictSearch(e.target.value)}
+                className="w-full pl-4 pr-10 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 appearance-none"
+              >
+                <option value="">All Verdicts</option>
+                {availableVerdicts.map((verdict) => (
+                  <option key={verdict} value={verdict}>
+                    {verdict}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
           </div>
 
           {/* Clear Filters Button */}
-          {(nameUidSearch || collegeSearch || evaluationSearch || interviewSearch) && (
+          {(nameUidSearch || collegeSearch || evaluationSearch || interviewSearch || verdictSearch) && (
             <div className="mb-4">
               <button
                 onClick={() => {
@@ -259,6 +382,7 @@ export default function Dashboard() {
                   setCollegeSearch('')
                   setEvaluationSearch('')
                   setInterviewSearch('')
+                  setVerdictSearch('')
                 }}
                 className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium text-sm"
               >
@@ -297,7 +421,7 @@ export default function Dashboard() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Name
                     </th>
-                    {!evaluationSearch && !interviewSearch && (
+                    {!evaluationSearch && !interviewSearch && !verdictSearch && (
                       <>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           College Name
@@ -329,17 +453,22 @@ export default function Dashboard() {
                         {interviewSearch.toUpperCase()} Score
                       </th>
                     )}
+                    {verdictSearch && (
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Final Verdict
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {students.map((student) => {
-                    const profileUrl = typeof window !== 'undefined' 
+                    const profileUrl = typeof window !== 'undefined'
                       ? `${window.location.origin}/students/${student.student_uid}`
                       : `https://academy-edge-dashboard.vercel.app/students/${student.student_uid}`
-                    
+
                     const evaluationScore = getEvaluationScore(student)
                     const interviewScore = getInterviewScore(student)
-                    
+
                     return (
                       <tr
                         key={student.student_uid}
@@ -356,7 +485,7 @@ export default function Dashboard() {
                             {student.basic_info?.name || 'N/A'}
                           </span>
                         </td>
-                        {!evaluationSearch && !interviewSearch && (
+                        {!evaluationSearch && !interviewSearch && !verdictSearch && (
                           <>
                             <td className="px-4 py-4 whitespace-nowrap">
                               <span className="text-sm text-gray-600">
@@ -375,32 +504,31 @@ export default function Dashboard() {
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap">
                               <span className="text-sm text-gray-900">
-                                {student.assessment_score !== null && student.assessment_score !== undefined 
-                                  ? String(student.assessment_score) 
+                                {student.assessment_score !== null && student.assessment_score !== undefined
+                                  ? String(student.assessment_score)
                                   : 'N/A'}
                               </span>
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap">
                               <span className="text-sm text-gray-900">
-                                {student.tr1_score !== null && student.tr1_score !== undefined 
-                                  ? String(student.tr1_score) 
+                                {student.tr1_score !== null && student.tr1_score !== undefined
+                                  ? String(student.tr1_score)
                                   : 'N/A'}
                               </span>
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap">
                               <span className="text-sm text-gray-900">
-                                {student.tr2_score !== null && student.tr2_score !== undefined 
-                                  ? String(student.tr2_score) 
+                                {student.tr2_score !== null && student.tr2_score !== undefined
+                                  ? String(student.tr2_score)
                                   : 'N/A'}
                               </span>
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap">
-                              <span className={`text-sm font-medium ${
-                                student.final_verdict === 'Strong Hire' ? 'text-green-600' :
+                              <span className={`text-sm font-medium ${student.final_verdict === 'Strong Hire' ? 'text-green-600' :
                                 student.final_verdict === 'Hire' ? 'text-blue-600' :
-                                student.final_verdict === 'Weak Hire' ? 'text-yellow-600' :
-                                'text-gray-500'
-                              }`}>
+                                  student.final_verdict === 'Weak Hire' ? 'text-yellow-600' :
+                                    'text-gray-500'
+                                }`}>
                                 {student.final_verdict || 'N/A'}
                               </span>
                             </td>
@@ -417,6 +545,17 @@ export default function Dashboard() {
                           <td className="px-4 py-4 whitespace-nowrap">
                             <span className="text-sm font-medium text-gray-900">
                               {interviewScore || 'N/A'}
+                            </span>
+                          </td>
+                        )}
+                        {verdictSearch && (
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <span className={`text-sm font-medium ${student.final_verdict === 'Strong Hire' ? 'text-green-600' :
+                                student.final_verdict === 'Hire' ? 'text-blue-600' :
+                                  student.final_verdict === 'Weak Hire' ? 'text-yellow-600' :
+                                    'text-gray-500'
+                              }`}>
+                              {student.final_verdict || 'N/A'}
                             </span>
                           </td>
                         )}

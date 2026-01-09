@@ -1,0 +1,13 @@
+
+--- NEW REQUEST ---
+UID: abaa6722-a4ac-4475-9299-a107f457c4fc
+Student Keys: _id,student_uid,basic_info,assessment_data,tr1_data,tr2_data_filter,verdict_data
+Assessment Data Type: object
+Assessment Keys: 0
+
+--- NEW REQUEST ---
+UID: abaa6722-a4ac-4475-9299-a107f457c4fc
+Student Keys: _id,student_uid,basic_info,assessment_data,tr1_data,tr2_data_filter,verdict_data
+Assessment Data Type: object
+Assessment Keys: _id,assessment
+Inner Assessment Keys: scores
