@@ -52,6 +52,7 @@ export default function Dashboard() {
   const router = useRouter()
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
+  const [accessChecked, setAccessChecked] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
@@ -176,9 +177,26 @@ export default function Dashboard() {
     }
   }
 
+  // Check admin access on mount
   useEffect(() => {
+    // Check if user has admin session
+    const cookies = document.cookie.split(';')
+    const adminSession = cookies.find(c => c.trim().startsWith('admin_session='))
+    const accessType = cookies.find(c => c.trim().startsWith('access_type='))
+    
+    // If user came from student profile and doesn't have admin session, redirect
+    if (accessType?.includes('student_profile') && !adminSession) {
+      router.push('/access-denied')
+      return
+    }
+    
+    setAccessChecked(true)
+  }, [router])
+
+  useEffect(() => {
+    if (!accessChecked) return // Wait for access check
     fetchStudents(1, pagination.limit)
-  }, [debouncedNameUidSearch, debouncedCollegeSearch, debouncedEvaluationSearch, debouncedInterviewSearch, debouncedVerdictSearch, pagination.limit])
+  }, [debouncedNameUidSearch, debouncedCollegeSearch, debouncedEvaluationSearch, debouncedInterviewSearch, debouncedVerdictSearch, pagination.limit, accessChecked])
 
   const handlePageChange = (newPage: number) => {
     fetchStudents(newPage, pagination.limit)
@@ -225,6 +243,18 @@ export default function Dashboard() {
     if (interviewSearch === 'tr1') return student.tr1_score ? String(student.tr1_score) : null
     if (interviewSearch === 'tr2') return student.tr2_score ? String(student.tr2_score) : null
     return null
+  }
+
+  // Show loading while checking access
+  if (!accessChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Checking access...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
