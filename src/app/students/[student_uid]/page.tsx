@@ -409,8 +409,8 @@ export default function StudentProfile() {
                                   </button>
                                 ) : (
                                   <div className="text-xs text-gray-500">No Problem Available</div>
-                                )}
-                              </div>
+                    )}
+                  </div>
                               
                               {/* LeetCode Problem 2 */}
                               <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
@@ -432,7 +432,7 @@ export default function StudentProfile() {
                             </>
                           )
                         })()}
-                      </div>
+              </div>
             </div>
           </div>
 

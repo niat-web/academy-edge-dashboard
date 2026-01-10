@@ -448,12 +448,12 @@ export default function Dashboard() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       UID
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                       Name
                     </th>
                     {!evaluationSearch && !interviewSearch && !verdictSearch && (
                       <>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-64">
                           College Name
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -510,15 +510,15 @@ export default function Dashboard() {
                             {student.student_uid}
                           </span>
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <span className="text-sm font-medium text-gray-900">
+                        <td className="px-4 py-4 w-32">
+                          <span className="text-sm font-medium text-gray-900 break-words">
                             {student.basic_info?.name || 'N/A'}
                           </span>
                         </td>
                         {!evaluationSearch && !interviewSearch && !verdictSearch && (
                           <>
-                            <td className="px-4 py-4 whitespace-nowrap">
-                              <span className="text-sm text-gray-600">
+                            <td className="px-4 py-4 w-64">
+                              <span className="text-sm text-gray-600 break-words">
                                 {student.basic_info?.university || student.basic_info?.college_name || 'N/A'}
                               </span>
                             </td>
