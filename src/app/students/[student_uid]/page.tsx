@@ -366,21 +366,26 @@ export default function StudentProfile() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {(() => {
                           const codingProblem = student.tr1?.coding_problem_asked || ''
-                          // Try to split by comma first, then by space, then extract URLs
+                          // Extract all URLs using regex - handles cases with no space/comma between links
                           let urls: string[] = []
                           if (codingProblem) {
                             // First try splitting by comma
-                            const commaSplit = codingProblem.split(',').map(s => s.trim())
+                            const commaSplit = codingProblem.split(',').map((s: string) => s.trim())
                             if (commaSplit.length > 1) {
-                              urls = commaSplit.filter(s => s.startsWith('http'))
+                              urls = commaSplit.filter((s: string) => s.startsWith('http'))
                             } else {
                               // Try splitting by space
                               const spaceSplit = codingProblem.split(/\s+/)
-                              urls = spaceSplit.filter(s => s.startsWith('http'))
-                              // If still no URLs found, try regex extraction
-                              if (urls.length === 0) {
-                                const urlRegex = /(https?:\/\/[^\s,]+)/g
-                                urls = codingProblem.match(urlRegex) || []
+                              urls = spaceSplit.filter((s: string) => s.startsWith('http'))
+                            }
+                            
+                            // If still no URLs found or need to handle concatenated URLs, use regex extraction
+                            // This regex will find URLs even if they're concatenated without separators
+                            if (urls.length === 0 || urls.length < 2) {
+                              const urlRegex = /https?:\/\/[^\s,]+/g
+                              const regexMatches = codingProblem.match(urlRegex) || []
+                              if (regexMatches.length > 0) {
+                                urls = regexMatches
                               }
                             }
                           }
@@ -391,7 +396,7 @@ export default function StudentProfile() {
                             <>
                               {/* LeetCode Problem 1 */}
                               <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
-                                <h4 className="text-sm font-semibold text-gray-900 mb-2">LeetCode Problem 1</h4>
+                                <h4 className="text-sm font-semibold text-gray-900 mb-3">LeetCode Problem 1</h4>
                                 {problem1Url ? (
                                   <button
                                     onClick={() => window.open(problem1Url, '_blank')}
@@ -404,12 +409,12 @@ export default function StudentProfile() {
                                   </button>
                                 ) : (
                                   <div className="text-xs text-gray-500">No Problem Available</div>
-                    )}
-                  </div>
+                                )}
+                              </div>
                               
                               {/* LeetCode Problem 2 */}
                               <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
-                                <h4 className="text-sm font-semibold text-gray-900 mb-2">LeetCode Problem 2</h4>
+                                <h4 className="text-sm font-semibold text-gray-900 mb-3">LeetCode Problem 2</h4>
                                 {problem2Url ? (
                                   <button
                                     onClick={() => window.open(problem2Url, '_blank')}
@@ -427,7 +432,7 @@ export default function StudentProfile() {
                             </>
                           )
                         })()}
-              </div>
+                      </div>
             </div>
           </div>
 
