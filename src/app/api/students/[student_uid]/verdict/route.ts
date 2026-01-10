@@ -8,6 +8,7 @@ interface FinalVerdict {
   strengths: string[]
   improvements: string[]
   recommendation: Recommendation
+  recommended_role_fit?: string
   generated_at: Date
   model: string // Allow any model name that works
 }
