@@ -8,6 +8,12 @@ function loadServiceAccountCredentials() {
   if (envKeyJson) {
     try {
       const parsed = JSON.parse(envKeyJson)
+
+      // Sanitize private key: replace literal \n with actual newlines
+      if (parsed.private_key) {
+        parsed.private_key = parsed.private_key.replace(/\\n/g, '\n')
+      }
+
       console.log('Loaded Google service account from GOOGLE_SERVICE_ACCOUNT_KEY env var')
       return parsed
     } catch (error) {

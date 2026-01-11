@@ -1,0 +1,16 @@
+{
+  "stack": "Error: invalid_grant: Invalid JWT Signature.\n    at Gaxios._request (C:\\NW_workspace\\academy-edge-dashboard\\node_modules\\gaxios\\build\\cjs\\src\\gaxios.js:155:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)",
+  "message": "invalid_grant: Invalid JWT Signature.",
+  "cause": {
+    "message": "invalid_grant",
+    "code": 400,
+    "status": "Bad Request"
+  },
+  "config": {},
+  "response": {
+    "config": {},
+    "status": 400
+  },
+  "code": 400,
+  "status": 400
+}

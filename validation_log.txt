@@ -1,0 +1,6 @@
+--- Credential Validation ---
+Has client_email: true
+Has private_key: true
+Private key starts with header: true
+Private key contains actual newlines: true
+Private key contains escaped slash-n: false

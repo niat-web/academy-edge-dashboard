@@ -1,16 +1,5 @@
 import { NextResponse } from 'next/server'
 
-/**
- * Cron endpoint that syncs all data and generates verdicts
- * This should be called every 5 minutes by an external cron service
- * 
- * To set up:
- * 1. Use a cron service like EasyCron, cron-job.org, or your server's cron
- * 2. Set it to call: POST https://your-domain.com/api/cron/sync
- * 3. Schedule: every 5 minutes (cron expression: 0,5,10,15,20,25,30,35,40,45,50,55 * * * *)
- * 
- * Or use this endpoint with a secret key for security
- */
 export async function GET(request: Request) {
   // Vercel Cron Jobs send a special header - verify it
   const authHeader = request.headers.get('authorization')
