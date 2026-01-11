@@ -1,16 +1,4 @@
 {
-  "stack": "Error: invalid_grant: Invalid JWT Signature.\n    at Gaxios._request (C:\\NW_workspace\\academy-edge-dashboard\\node_modules\\gaxios\\build\\cjs\\src\\gaxios.js:155:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)",
-  "message": "invalid_grant: Invalid JWT Signature.",
-  "cause": {
-    "message": "invalid_grant",
-    "code": 400,
-    "status": "Bad Request"
-  },
-  "config": {},
-  "response": {
-    "config": {},
-    "status": 400
-  },
-  "code": 400,
-  "status": 400
+  "stack": "Error: No valid credentials found\n    at runTest (C:\\NW_workspace\\academy-edge-dashboard\\reproduce_cron.js:54:19)\n    at Object.<anonymous> (C:\\NW_workspace\\academy-edge-dashboard\\reproduce_cron.js:112:1)\n    at Module._compile (node:internal/modules/cjs/loader:1761:14)\n    at Object..js (node:internal/modules/cjs/loader:1893:10)\n    at Module.load (node:internal/modules/cjs/loader:1481:32)\n    at Module._load (node:internal/modules/cjs/loader:1300:12)\n    at TracingChannel.traceSync (node:diagnostics_channel:328:14)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:245:24)\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\n    at node:internal/main/run_main_module:33:47",
+  "message": "No valid credentials found"
 }

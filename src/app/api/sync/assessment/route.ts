@@ -3,6 +3,7 @@ import clientPromise from '@/lib/mongodb'
 import { getSheetsClient } from '@/lib/googlesheets'
 
 const RAW_DATA_TAB_NAME = 'raw data'
+const CONCURRENCY_LIMIT = 5 // Process 5 sheets at a time
 
 const ASSESSMENT_FIELD_MAP: Record<string, string> = {
   'Student Assessment Score': 'scores.student_assessment_score',
@@ -41,7 +42,7 @@ export async function POST() {
     const tr2Students = await db.collection('students-tr2')
       .find({}, { projection: { student_uid: 1 } })
       .toArray()
-    
+
     const validStudentUids = new Set(
       tr2Students
         .map((s: any) => s.student_uid)
@@ -56,19 +57,22 @@ export async function POST() {
     let skippedRows = 0
     let notInTr2Count = 0
 
-    for (const college of colleges) {
+    // Helper function to process a single college
+    const processCollege = async (college: any) => {
       const sheetId = college.sheet_id
       const collegeName = college.college_name
 
       if (!sheetId) {
         console.warn(`Skipping ${collegeName}: No sheet_id found`)
-        skippedRows++
-        continue
+        return { skipped: 1, upserted: 0, notInTr2: 0 }
       }
 
+      let localSkipped = 0
+      let localUpserted = 0
+      let localNotInTr2 = 0
+
       try {
-        // Format range properly: try different formats for sheet names with spaces
-        // Use A:ZZ to capture more columns (up to column ZZ = 702 columns)
+        // Format range: try different formats
         let response
         try {
           const range = `'${RAW_DATA_TAB_NAME}'!A:ZZ`
@@ -77,7 +81,6 @@ export async function POST() {
             range: range,
           })
         } catch (rangeError: any) {
-          // If quoted format fails, try without quotes
           if (rangeError.message?.includes('parse range')) {
             const range = `${RAW_DATA_TAB_NAME}!A:ZZ`
             response = await sheets.spreadsheets.values.get({
@@ -92,36 +95,20 @@ export async function POST() {
         const rows = response.data.values || []
         if (rows.length < 2) {
           console.warn(`Skipping ${collegeName}: Not enough data rows (${rows.length})`)
-          skippedRows++
-          continue
+          return { skipped: 1, upserted: 0, notInTr2: 0 }
         }
 
         const headers = rows[0]
         const uidIndex = headers.indexOf('Student ID')
-        const nameIndex = headers.indexOf('Candidate Name') !== -1 
+        const nameIndex = headers.indexOf('Candidate Name') !== -1
           ? headers.indexOf('Candidate Name')
           : headers.indexOf('Student Name') !== -1
-          ? headers.indexOf('Student Name')
-          : headers.indexOf('Name')
+            ? headers.indexOf('Student Name')
+            : headers.indexOf('Name')
 
         if (uidIndex === -1) {
-          console.warn(`Skipping ${collegeName}: Student ID column not found. Available headers: ${headers.slice(0, 10).join(', ')}...`)
-          skippedRows++
-          continue
-        }
-
-        // Log unmapped columns for debugging
-        const mappedHeaders = Object.keys(ASSESSMENT_FIELD_MAP)
-        const unmappedHeaders = headers.filter((h: string) => 
-          h && 
-          h !== 'Student ID' && 
-          h !== 'Candidate Name' && 
-          h !== 'Student Name' && 
-          h !== 'Name' &&
-          !mappedHeaders.includes(h)
-        )
-        if (unmappedHeaders.length > 0) {
-          console.log(`[${collegeName}] Unmapped columns (${unmappedHeaders.length}): ${unmappedHeaders.slice(0, 10).join(', ')}${unmappedHeaders.length > 10 ? '...' : ''}`)
+          console.warn(`Skipping ${collegeName}: Student ID column not found.`)
+          return { skipped: 1, upserted: 0, notInTr2: 0 }
         }
 
         for (let i = 1; i < rows.length; i++) {
@@ -129,51 +116,49 @@ export async function POST() {
           const rawUid = row[uidIndex]
 
           if (!rawUid) {
-            skippedRows++
+            localSkipped++
             continue
           }
 
           const student_uid = rawUid.trim()
           if (!student_uid) {
-            skippedRows++
+            localSkipped++
             continue
           }
 
-          // Only process students whose student_uid exists in students-tr2 collection
           if (!validStudentUids.has(student_uid)) {
-            notInTr2Count++
+            localNotInTr2++
             continue
           }
 
           const assessment: any = {}
 
-          // Map known fields from ASSESSMENT_FIELD_MAP
+          // Map known fields
           for (const [header, path] of Object.entries(ASSESSMENT_FIELD_MAP)) {
             const colIndex = headers.indexOf(header)
             if (colIndex === -1) continue
             const value = row[colIndex] ?? ''
-            if (value !== '') { // Only set non-empty values
+            if (value !== '') {
               setNestedValue(assessment, path, value)
             }
           }
 
-          // Store all other columns in a raw_data field for reference
+          // Store raw data
           const rawData: Record<string, any> = {}
           headers.forEach((header: string, index: number) => {
-            if (header && 
-                header !== 'Student ID' && 
-                header !== 'Candidate Name' && 
-                header !== 'Student Name' && 
-                header !== 'Name' &&
-                !Object.keys(ASSESSMENT_FIELD_MAP).includes(header)) {
+            if (header &&
+              header !== 'Student ID' &&
+              header !== 'Candidate Name' &&
+              header !== 'Student Name' &&
+              header !== 'Name' &&
+              !Object.keys(ASSESSMENT_FIELD_MAP).includes(header)) {
               const value = row[index]
               if (value !== undefined && value !== '') {
                 rawData[header] = value
               }
             }
           })
-          
-          // Add raw_data if there are unmapped fields
+
           if (Object.keys(rawData).length > 0) {
             assessment.raw_data = rawData
           }
@@ -198,14 +183,28 @@ export async function POST() {
             { upsert: true }
           )
 
-          upsertedCount++
+          localUpserted++
         }
       } catch (error: any) {
         console.error(`Error processing ${collegeName} (sheet_id: ${sheetId}):`, error.message)
-        // Continue with next college instead of failing entire sync
-        skippedRows++
-        continue
+        return { skipped: 1, upserted: 0, notInTr2: 0 }
       }
+
+      return { skipped: localSkipped, upserted: localUpserted, notInTr2: localNotInTr2 }
+    }
+
+    // Process in batches
+    for (let i = 0; i < colleges.length; i += CONCURRENCY_LIMIT) {
+      const batch = colleges.slice(i, i + CONCURRENCY_LIMIT)
+      const results = await Promise.all(batch.map(processCollege))
+
+      results.forEach(r => {
+        skippedRows += r.skipped
+        upsertedCount += r.upserted
+        notInTr2Count += r.notInTr2
+      })
+
+      console.log(`Processed batch ${Math.ceil((i + 1) / CONCURRENCY_LIMIT)}/${Math.ceil(colleges.length / CONCURRENCY_LIMIT)}`)
     }
 
     return NextResponse.json({

@@ -40,7 +40,10 @@ async function runTest() {
                 console.error('Failed to parse GOOGLE_SERVICE_ACCOUNT_KEY:', e.message);
             }
         } else {
-            const keyPath = path.join(process.cwd(), 'credentials', 'academy-edge-483505-110aaedb192a.json');
+            const defaultPath = 'credentials/academy-edge-483505-b443ee3cd5b9.json';
+            const envPath = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH;
+            const keyPathScan = envPath ? envPath : defaultPath;
+            const keyPath = path.isAbsolute(keyPathScan) ? keyPathScan : path.join(process.cwd(), keyPathScan);
             console.log('Checking fallback file path:', keyPath);
             if (fs.existsSync(keyPath)) {
                 credentials = JSON.parse(fs.readFileSync(keyPath, 'utf-8'));

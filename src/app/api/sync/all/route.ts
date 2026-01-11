@@ -24,7 +24,7 @@ export async function POST() {
     const tr2Module = await import('../tr2/route')
     const collegeTrackerModule = await import('../college-tracker/route')
 
-    // 1. Sync College Tracker
+    // 1. Sync College Tracker (Get latest sheet IDs)
     try {
       console.log('[SYNC] Syncing college tracker...')
       const response = await collegeTrackerModule.POST()
@@ -39,22 +39,22 @@ export async function POST() {
       results.collegeTracker = { success: false, error: error.message, count: 0 }
     }
 
-    // 2. Sync Assessment Data
+    // 2. Sync TR2 Data (Master Student List)
     try {
-      console.log('[SYNC] Syncing assessment data...')
-      const response = await assessmentModule.POST()
+      console.log('[SYNC] Syncing TR2 data...')
+      const response = await tr2Module.POST()
       const data = await response.json()
       if (data.status === 'ok') {
-        results.assessment = { success: true, error: null, count: data.upsertedCount || 0 }
+        results.tr2 = { success: true, error: null, count: data.upsertedCount || 0 }
       } else {
-        results.assessment = { success: false, error: data.message || 'Unknown error', count: 0 }
+        results.tr2 = { success: false, error: data.message || 'Unknown error', count: 0 }
       }
     } catch (error: any) {
-      console.error('[SYNC] Error syncing assessment:', error)
-      results.assessment = { success: false, error: error.message, count: 0 }
+      console.error('[SYNC] Error syncing TR2:', error)
+      results.tr2 = { success: false, error: error.message, count: 0 }
     }
 
-    // 3. Sync TR1 Data
+    // 3. Sync TR1 Data (Depends on TR2 UIDs)
     try {
       console.log('[SYNC] Syncing TR1 data...')
       const response = await tr1Module.POST()
@@ -69,19 +69,19 @@ export async function POST() {
       results.tr1 = { success: false, error: error.message, count: 0 }
     }
 
-    // 4. Sync TR2 Data
+    // 4. Sync Assessment Data (Depends on TR2 UIDs & College Sheets)
     try {
-      console.log('[SYNC] Syncing TR2 data...')
-      const response = await tr2Module.POST()
+      console.log('[SYNC] Syncing assessment data...')
+      const response = await assessmentModule.POST()
       const data = await response.json()
       if (data.status === 'ok') {
-        results.tr2 = { success: true, error: null, count: data.upsertedCount || 0 }
+        results.assessment = { success: true, error: null, count: data.upsertedCount || 0 }
       } else {
-        results.tr2 = { success: false, error: data.message || 'Unknown error', count: 0 }
+        results.assessment = { success: false, error: data.message || 'Unknown error', count: 0 }
       }
     } catch (error: any) {
-      console.error('[SYNC] Error syncing TR2:', error)
-      results.tr2 = { success: false, error: error.message, count: 0 }
+      console.error('[SYNC] Error syncing assessment:', error)
+      results.assessment = { success: false, error: error.message, count: 0 }
     }
 
     const duration = Date.now() - startTime
