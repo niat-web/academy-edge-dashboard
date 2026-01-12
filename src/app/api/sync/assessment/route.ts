@@ -38,20 +38,36 @@ export async function POST() {
     const client = await clientPromise
     const db = client.db('student_dashboard')
 
-    // Get all student_uid values from students-tr2 collection for filtering
+    // 4. Get all students from TR2 and check who is missing in the assessment collection
     const tr2Students = await db.collection('students-tr2')
+      .find({}, { projection: { student_uid: 1, 'basic_info.university': 1 } })
+      .toArray()
+
+    const existingAssessments = await db.collection('students')
       .find({}, { projection: { student_uid: 1 } })
       .toArray()
 
-    const validStudentUids = new Set(
-      tr2Students
-        .map((s: any) => s.student_uid)
-        .filter((uid: any) => uid) // Filter out null/undefined
+    const assessmentUidSet = new Set(existingAssessments.map(s => s.student_uid))
+
+    const studentsNeedSync = tr2Students.filter(s => !assessmentUidSet.has(s.student_uid))
+    const validStudentUids = new Set(tr2Students.map(s => s.student_uid))
+
+    console.log(`Targeted Sync: ${studentsNeedSync.length}/${tr2Students.length} students missing assessment data`)
+
+    const relevantUnivSet = new Set(
+      studentsNeedSync.map(s => (s.basic_info?.university || '').toString().trim().toLowerCase())
     )
 
-    console.log(`Found ${validStudentUids.size} valid student_uid values from students-tr2 collection`)
+    console.log(`Targeting ${relevantUnivSet.size} unique universities for sync`)
 
-    const colleges = await db.collection('college_sheets').find().toArray()
+    // 5. Fetch and Filter colleges
+    const allColleges = await db.collection('college_sheets').find().toArray()
+    const colleges = allColleges.filter(c => {
+      const name = (c.college_name || '').toString().trim().toLowerCase()
+      return relevantUnivSet.has(name)
+    })
+
+    console.log(`Filtering colleges: ${allColleges.length} total -> ${colleges.length} relevant to sync`)
 
     let upsertedCount = 0
     let skippedRows = 0
