@@ -10,7 +10,7 @@ export async function POST() {
     const startTime = Date.now()
     console.log('[VERDICT SYNC] Starting verdict generation...')
 
-    const result = await generateVerdictsForAllStudents(5) // Increased from 1 back to 5 thanks to faster sync!
+    const result = await generateVerdictsForAllStudents() // Now self-regulates based on Vercel's 300s limit!
 
     const duration = Date.now() - startTime
     console.log(`[VERDICT SYNC] Completed in ${duration}ms`)

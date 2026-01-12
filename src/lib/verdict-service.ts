@@ -274,15 +274,18 @@ ${JSON.stringify(tr2Data, null, 2)}
 
 /**
  * Generate verdicts for students who don't have one
- * Processes up to maxToProcess students to avoid timeouts
+ * Processes as many as possible within the Vercel time limit (300s)
  */
-export async function generateVerdictsForAllStudents(maxToProcess: number = 5): Promise<{
+export async function generateVerdictsForAllStudents(maxToProcess: number = 50): Promise<{
   total: number
   processed: number
   succeeded: number
   failed: number
   errors: Array<{ student_uid: string; error: string }>
 }> {
+  const START_TIME = Date.now()
+  const TIME_LIMIT_MS = 250000 // 250 seconds safety limit for Vercel 300s limit
+
   try {
     const client = await clientPromise
     const db = client.db('student_dashboard')
@@ -310,24 +313,34 @@ export async function generateVerdictsForAllStudents(maxToProcess: number = 5): 
 
     const totalNeeding = studentsNeedingVerdicts.length
 
-    // Only process up to maxToProcess
-    const studentsToProcess = studentsNeedingVerdicts.slice(0, maxToProcess)
-
     let processed = 0
     let succeeded = 0
     let failed = 0
     const errors: Array<{ student_uid: string; error: string }> = []
 
-    console.log(`Found ${totalNeeding} students needing verdicts. Processing limit: ${maxToProcess}`)
+    console.log(`Found ${totalNeeding} students needing verdicts. Starting time-aware processing...`)
 
-    // Process sequentially
-    for (const student of studentsToProcess) {
+    // Process sequentially until time runs out or all are done
+    for (const student of studentsNeedingVerdicts) {
+      // Check if we are approaching the Vercel timeout
+      const elapsed = Date.now() - START_TIME
+      if (elapsed > TIME_LIMIT_MS) {
+        console.warn(`[TIME-LIMIT] Stopping processing at ${elapsed}ms to avoid Vercel timeout. Processed ${processed}/${totalNeeding}`)
+        break
+      }
+
+      // Stop if we hit the guardrail limit (default 50)
+      if (processed >= maxToProcess) {
+        console.log(`[LIMIT] Reached safety limit of ${maxToProcess} students. Stopping.`)
+        break
+      }
+
       const result = await generateVerdictForStudent(student.student_uid)
       processed++
 
       if (result.success) {
         succeeded++
-        console.log(`✓ Generated verdict for ${student.student_uid} (${processed}/${studentsToProcess.length})`)
+        console.log(`✓ Generated verdict for ${student.student_uid} (${processed}/${totalNeeding})`)
       } else {
         failed++
         errors.push({
@@ -338,7 +351,7 @@ export async function generateVerdictsForAllStudents(maxToProcess: number = 5): 
       }
 
       // Small delay between requests to avoid hitting rate limits
-      if (processed < studentsToProcess.length) {
+      if (processed < totalNeeding) {
         await new Promise((resolve) => setTimeout(resolve, 500)) // 500ms delay
       }
     }
