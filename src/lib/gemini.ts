@@ -25,11 +25,11 @@ function isRateLimitError(error: any): boolean {
 }
 
 export async function generateVerdict(prompt: string): Promise<{ text: string; model: string }> {
-  // Try stable Gemini models
+  // Try exact model names provided by user
   const modelNames = [
-    'gemini-1.5-flash-latest',
-    'gemini-1.5-flash',
-    'gemini-1.5-flash-8b',
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
+    'gemini-3-flash',
   ]
 
   let lastError: any = null
