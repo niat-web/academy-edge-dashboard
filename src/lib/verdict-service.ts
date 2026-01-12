@@ -273,10 +273,10 @@ ${JSON.stringify(tr2Data, null, 2)}
 }
 
 /**
- * Generate verdicts for all students who don't have one
- * Processes in batches with rate limiting
+ * Generate verdicts for students who don't have one
+ * Processes up to maxToProcess students to avoid timeouts
  */
-export async function generateVerdictsForAllStudents(batchSize: number = 5): Promise<{
+export async function generateVerdictsForAllStudents(maxToProcess: number = 5): Promise<{
   total: number
   processed: number
   succeeded: number
@@ -308,44 +308,43 @@ export async function generateVerdictsForAllStudents(batchSize: number = 5): Pro
       (s: any) => s.student_uid && !verdictUids.has(s.student_uid)
     )
 
-    const total = studentsNeedingVerdicts.length
+    const totalNeeding = studentsNeedingVerdicts.length
+
+    // Only process up to maxToProcess
+    const studentsToProcess = studentsNeedingVerdicts.slice(0, maxToProcess)
+
     let processed = 0
     let succeeded = 0
     let failed = 0
     const errors: Array<{ student_uid: string; error: string }> = []
 
-    console.log(`Found ${total} students needing verdicts`)
+    console.log(`Found ${totalNeeding} students needing verdicts. Processing limit: ${maxToProcess}`)
 
-    // Process in batches
-    for (let i = 0; i < studentsNeedingVerdicts.length; i += batchSize) {
-      const batch = studentsNeedingVerdicts.slice(i, i + batchSize)
+    // Process sequentially
+    for (const student of studentsToProcess) {
+      const result = await generateVerdictForStudent(student.student_uid)
+      processed++
 
-      // Process batch sequentially to respect rate limits
-      for (const student of batch) {
-        const result = await generateVerdictForStudent(student.student_uid)
-        processed++
+      if (result.success) {
+        succeeded++
+        console.log(`✓ Generated verdict for ${student.student_uid} (${processed}/${studentsToProcess.length})`)
+      } else {
+        failed++
+        errors.push({
+          student_uid: student.student_uid,
+          error: result.error || 'Unknown error',
+        })
+        console.error(`✗ Failed to generate verdict for ${student.student_uid}: ${result.error}`)
+      }
 
-        if (result.success) {
-          succeeded++
-          console.log(`✓ Generated verdict for ${student.student_uid} (${processed}/${total})`)
-        } else {
-          failed++
-          errors.push({
-            student_uid: student.student_uid,
-            error: result.error || 'Unknown error',
-          })
-          console.error(`✗ Failed to generate verdict for ${student.student_uid}: ${result.error}`)
-        }
-
-        // Small delay between requests to avoid hitting rate limits
-        if (processed < total) {
-          await new Promise((resolve) => setTimeout(resolve, 500)) // 500ms delay
-        }
+      // Small delay between requests to avoid hitting rate limits
+      if (processed < studentsToProcess.length) {
+        await new Promise((resolve) => setTimeout(resolve, 500)) // 500ms delay
       }
     }
 
     return {
-      total,
+      total: totalNeeding,
       processed,
       succeeded,
       failed,
