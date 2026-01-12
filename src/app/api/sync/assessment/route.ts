@@ -88,29 +88,35 @@ export async function POST() {
       let localNotInTr2 = 0
 
       try {
-        // Format range: try different formats
-        let response
-        try {
-          const range = `'${RAW_DATA_TAB_NAME}'!A:ZZ`
-          response = await sheets.spreadsheets.values.get({
-            spreadsheetId: sheetId,
-            range: range,
-          })
-        } catch (rangeError: any) {
-          if (rangeError.message?.includes('parse range')) {
-            const range = `${RAW_DATA_TAB_NAME}!A:ZZ`
-            response = await sheets.spreadsheets.values.get({
-              spreadsheetId: sheetId,
-              range: range,
-            })
-          } else {
-            throw rangeError
-          }
+        // 1. Get spreadsheet metadata to find the correct tab name
+        const spreadsheet = await sheets.spreadsheets.get({
+          spreadsheetId: sheetId,
+        })
+
+        const sheetTitles = spreadsheet.data.sheets?.map(s => s.properties?.title).filter(Boolean) as string[]
+
+        // Find a title that matches "Raw Data" case-insensitively
+        let targetTabName = sheetTitles.find(t =>
+          t.trim().toLowerCase() === RAW_DATA_TAB_NAME.toLowerCase()
+        )
+
+        if (!targetTabName) {
+          // Fallback to exactly "Raw Data" if specified sheet list is empty or fails
+          // Or fall back to the very first sheet if no name matches
+          targetTabName = sheetTitles[0] || RAW_DATA_TAB_NAME
+          console.warn(`[SYNC] ${collegeName}: Could not find exact "${RAW_DATA_TAB_NAME}" tab. Falling back to "${targetTabName}"`)
         }
+
+        // 2. Fetch data from the identified tab
+        const range = `'${targetTabName}'!A:ZZ`
+        const response = await sheets.spreadsheets.values.get({
+          spreadsheetId: sheetId,
+          range: range,
+        })
 
         const rows = response.data.values || []
         if (rows.length < 2) {
-          console.warn(`Skipping ${collegeName}: Not enough data rows (${rows.length})`)
+          console.warn(`Skipping ${collegeName}: Not enough data rows (${rows.length}) in tab "${targetTabName}"`)
           return { skipped: 1, upserted: 0, notInTr2: 0 }
         }
 
