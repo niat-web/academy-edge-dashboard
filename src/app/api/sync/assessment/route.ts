@@ -3,7 +3,7 @@ import clientPromise from '@/lib/mongodb'
 import { getSheetsClient } from '@/lib/googlesheets'
 
 const RAW_DATA_TAB_NAME = 'raw data'
-const CONCURRENCY_LIMIT = 5 // Process 5 sheets at a time
+const CONCURRENCY_LIMIT = 3 // Reduced from 5 to avoid Rate Limiting
 
 const ASSESSMENT_FIELD_MAP: Record<string, string> = {
   'Student Assessment Score': 'scores.student_assessment_score',
@@ -205,6 +205,11 @@ export async function POST() {
       })
 
       console.log(`Processed batch ${Math.ceil((i + 1) / CONCURRENCY_LIMIT)}/${Math.ceil(colleges.length / CONCURRENCY_LIMIT)}`)
+
+      // Add delay to prevent hitting Google Sheets API rate limits (Quota Exceeded)
+      if (i + CONCURRENCY_LIMIT < colleges.length) {
+        await new Promise(resolve => setTimeout(resolve, 2000))
+      }
     }
 
     return NextResponse.json({
