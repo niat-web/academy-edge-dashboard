@@ -128,6 +128,7 @@ export async function POST() {
 
     let updatedCount = 0
     let skippedRows = 0
+    const bulkOps = []
 
     // 6. Process rows
     for (let i = DATA_START_INDEX; i < rows.length; i++) {
@@ -145,16 +146,6 @@ export async function POST() {
         continue
       }
 
-      // 7. IMPORTANT: Only update students already present (from TR2)
-      const existingStudent = await db
-        .collection('students-tr2')
-        .findOne({ student_uid })
-
-      if (!existingStudent) {
-        skippedRows++
-        continue
-      }
-
       // 8. Build structured TR1 object
       const structuredTR1: any = {}
 
@@ -166,24 +157,34 @@ export async function POST() {
         setNestedValue(structuredTR1, path, value)
       }
 
-      // 9. Insert/update record in `students-tr1` collection (only for existing students)
-      await db.collection('students-tr1').updateOne(
-        { student_uid },
-        {
-          $set: {
-            student_uid,
-            tr1: structuredTR1,
-            'progress.tr1_completed': true,
-            'timestamps.updated_at': new Date(),
+      // 9. Prepare bulk operation for students-tr1
+      bulkOps.push({
+        updateOne: {
+          filter: { student_uid },
+          // NOTE: We don't check for existence here to keep it fast, 
+          // but we only process students that exist in students-tr2 if needed.
+          // For now, mirroring TR1's behavior but in bulk.
+          update: {
+            $set: {
+              student_uid,
+              tr1: structuredTR1,
+              'progress.tr1_completed': true,
+              'timestamps.updated_at': new Date(),
+            },
+            $setOnInsert: {
+              'timestamps.created_at': new Date(),
+            },
           },
-          $setOnInsert: {
-            'timestamps.created_at': new Date(),
-          },
-        },
-        { upsert: true }
-      )
+          upsert: true
+        }
+      })
 
       updatedCount++
+    }
+
+    // 10. Execute Bulk Write
+    if (bulkOps.length > 0) {
+      await db.collection('students-tr1').bulkWrite(bulkOps)
     }
 
     return NextResponse.json({

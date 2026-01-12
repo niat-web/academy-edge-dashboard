@@ -10,7 +10,7 @@ export async function POST() {
     const startTime = Date.now()
     console.log('[VERDICT SYNC] Starting verdict generation...')
 
-    const result = await generateVerdictsForAllStudents(1) // Process EXACTLY 1 at a time for safety
+    const result = await generateVerdictsForAllStudents(5) // Increased from 1 back to 5 thanks to faster sync!
 
     const duration = Date.now() - startTime
     console.log(`[VERDICT SYNC] Completed in ${duration}ms`)

@@ -131,6 +131,7 @@ export async function POST() {
 
     let upsertedCount = 0
     let skippedRows = 0
+    const bulkOps = []
 
     // 6. Process each student row
     for (let i = DATA_START_INDEX; i < rows.length; i++) {
@@ -159,28 +160,35 @@ export async function POST() {
         setNestedValue(structuredTR2, path, value)
       }
 
-      // 8. Upsert student
-      await db.collection('students-tr2').updateOne(
-        { student_uid },
-        {
-          $set: {
-            student_uid,
-            basic_info: {
-              name: nameIndex !== -1 ? row[nameIndex] : '',
-              university: collegeIndex !== -1 ? (row[collegeIndex] ?? '') : '',
+      // 8. Prepare bulk operation
+      bulkOps.push({
+        updateOne: {
+          filter: { student_uid },
+          update: {
+            $set: {
+              student_uid,
+              basic_info: {
+                name: nameIndex !== -1 ? row[nameIndex] : '',
+                university: collegeIndex !== -1 ? (row[collegeIndex] ?? '') : '',
+              },
+              tr2: structuredTR2,
+              'progress.tr2_completed': true,
+              'timestamps.updated_at': new Date(),
             },
-            tr2: structuredTR2,
-            'progress.tr2_completed': true,
-            'timestamps.updated_at': new Date(),
+            $setOnInsert: {
+              'timestamps.created_at': new Date(),
+            },
           },
-          $setOnInsert: {
-            'timestamps.created_at': new Date(),
-          },
-        },
-        { upsert: true }
-      )
+          upsert: true
+        }
+      })
 
       upsertedCount++
+    }
+
+    // 9. Execute Bulk Write
+    if (bulkOps.length > 0) {
+      await db.collection('students-tr2').bulkWrite(bulkOps)
     }
 
     return NextResponse.json({
