@@ -276,7 +276,7 @@ ${JSON.stringify(tr2Data, null, 2)}
  * Generate verdicts for all students who don't have one
  * Processes in batches with rate limiting
  */
-export async function generateVerdictsForAllStudents(batchSize: number = 10): Promise<{
+export async function generateVerdictsForAllStudents(batchSize: number = 5): Promise<{
   total: number
   processed: number
   succeeded: number
@@ -339,7 +339,7 @@ export async function generateVerdictsForAllStudents(batchSize: number = 10): Pr
 
         // Small delay between requests to avoid hitting rate limits
         if (processed < total) {
-          await new Promise((resolve) => setTimeout(resolve, 2000)) // 2 second delay
+          await new Promise((resolve) => setTimeout(resolve, 500)) // 500ms delay
         }
       }
     }

@@ -4,14 +4,14 @@ export async function GET(request: Request) {
   // Vercel Cron Jobs send a special header - verify it
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
-  
+
   // For Vercel Cron, check the cron secret if set
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
     // Allow Vercel's internal cron calls (they don't send auth header)
     // But require auth for external calls
     const isVercelCron = request.headers.get('user-agent')?.includes('vercel-cron') ||
-                         request.headers.get('x-vercel-cron') === '1'
-    
+      request.headers.get('x-vercel-cron') === '1'
+
     if (!isVercelCron && authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ status: 'error', message: 'Unauthorized' }, { status: 401 })
     }
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
       console.log('[CRON] Calling POST function...')
       const syncResponse = await syncAllModule.POST()
       console.log('[CRON] Response received, type:', typeof syncResponse)
-      
+
       // Handle NextResponse properly
       if (syncResponse && typeof syncResponse.json === 'function') {
         console.log('[CRON] Parsing JSON response...')
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
         console.error('[CRON] Invalid response format:', syncResponse)
         syncData = { status: 'error', message: 'Invalid response from sync function' }
       }
-      
+
       console.log('[CRON] Data sync result:', syncData?.status)
     } catch (error: any) {
       console.error('[CRON] Error syncing data:', error)
@@ -51,16 +51,13 @@ export async function GET(request: Request) {
     // Generate verdicts (only if data sync was successful)
     let verdictData = null
     if (syncData.status === 'ok') {
-      // Wait 5 seconds before generating verdicts to avoid rate limits
-      await new Promise((resolve) => setTimeout(resolve, 5000))
-      
       try {
         console.log('[CRON] Importing verdicts module...')
         const verdictModule = await import('../../sync/verdicts/route')
         console.log('[CRON] Calling verdict POST function...')
         const verdictResponse = await verdictModule.POST()
         console.log('[CRON] Verdict response received, type:', typeof verdictResponse)
-        
+
         // Handle NextResponse properly
         if (verdictResponse && typeof verdictResponse.json === 'function') {
           console.log('[CRON] Parsing verdict JSON response...')
@@ -69,7 +66,7 @@ export async function GET(request: Request) {
           console.error('[CRON] Invalid verdict response format:', verdictResponse)
           verdictData = { status: 'error', message: 'Invalid response from verdict function' }
         }
-        
+
         console.log('[CRON] Verdict generation result:', verdictData?.status)
       } catch (error: any) {
         console.error('[CRON] Error generating verdicts:', error)
@@ -96,13 +93,13 @@ export async function GET(request: Request) {
     console.error('[CRON] Error message:', error?.message)
     console.error('[CRON] Error stack:', error?.stack)
     console.error('[CRON] Error cause:', error?.cause)
-    
+
     // Provide more detailed error message
     let errorMessage = error?.message || 'Cron job failed'
     if (error?.message?.includes('fetch')) {
       errorMessage = `Network error: ${error.message}. This might be due to Google Sheets API connection issues or missing environment variables.`
     }
-    
+
     return NextResponse.json(
       {
         status: 'error',

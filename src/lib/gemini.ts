@@ -11,7 +11,7 @@ const API_URL = 'https://generativelanguage.googleapis.com/v1beta'
 function isRateLimitError(error: any): boolean {
   const errorMessage = error?.message || ''
   const errorText = error?.toString() || ''
-  
+
   // Check for common rate limit indicators
   return (
     errorMessage.includes('429') ||
@@ -25,10 +25,11 @@ function isRateLimitError(error: any): boolean {
 }
 
 export async function generateVerdict(prompt: string): Promise<{ text: string; model: string }> {
-  // Try only gemini-2.5-flash models
+  // Try stable Gemini models
   const modelNames = [
-    'gemini-2.5-flash',
-    'gemini-2.5-flash-lite',
+    'gemini-1.5-flash-latest',
+    'gemini-1.5-flash',
+    'gemini-1.5-flash-8b',
   ]
 
   let lastError: any = null
@@ -37,7 +38,10 @@ export async function generateVerdict(prompt: string): Promise<{ text: string; m
   for (const modelName of modelNames) {
     try {
       console.log(`[GEMINI] Trying model: ${modelName}`)
-      
+
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30s timeout
+
       const response = await fetch(
         `${API_URL}/models/${modelName}:generateContent?key=${API_KEY}`,
         {
@@ -45,6 +49,7 @@ export async function generateVerdict(prompt: string): Promise<{ text: string; m
           headers: {
             'Content-Type': 'application/json',
           },
+          signal: controller.signal,
           body: JSON.stringify({
             contents: [
               {
@@ -58,11 +63,12 @@ export async function generateVerdict(prompt: string): Promise<{ text: string; m
           }),
         }
       )
+      clearTimeout(timeoutId)
 
       if (!response.ok) {
         const errorText = await response.text()
         const error = new Error(`HTTP ${response.status}: ${errorText}`)
-        
+
         // Check if it's a rate limit error
         if (response.status === 429 || isRateLimitError(error)) {
           rateLimitHit = true
@@ -70,15 +76,15 @@ export async function generateVerdict(prompt: string): Promise<{ text: string; m
           lastError = error
           break // Stop trying Gemini models
         }
-        
+
         throw error
       }
 
       const data = await response.json()
-      
+
       if (data.error) {
         const error = new Error(data.error.message || 'Unknown API error')
-        
+
         // Check if it's a rate limit error
         if (isRateLimitError(error)) {
           rateLimitHit = true
@@ -86,7 +92,7 @@ export async function generateVerdict(prompt: string): Promise<{ text: string; m
           lastError = error
           break // Stop trying Gemini models
         }
-        
+
         throw error
       }
 
@@ -105,7 +111,7 @@ export async function generateVerdict(prompt: string): Promise<{ text: string; m
         lastError = error
         break // Stop trying Gemini models
       }
-      
+
       console.log(`[GEMINI] Model ${modelName} failed:`, error.message)
       lastError = error
       // Continue to next model

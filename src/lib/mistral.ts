@@ -28,13 +28,17 @@ export async function generateVerdictWithMistral(prompt: string): Promise<{ text
   for (const modelName of MISTRAL_MODELS) {
     try {
       console.log(`[MISTRAL] Trying model: ${modelName}`)
-      
+
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30s timeout
+
       const response = await fetch(MISTRAL_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${MISTRAL_API_KEY}`,
         },
+        signal: controller.signal,
         body: JSON.stringify({
           model: modelName,
           messages: [
@@ -47,6 +51,7 @@ export async function generateVerdictWithMistral(prompt: string): Promise<{ text
           response_format: { type: 'json_object' }, // Request JSON response
         }),
       })
+      clearTimeout(timeoutId)
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -55,7 +60,7 @@ export async function generateVerdictWithMistral(prompt: string): Promise<{ text
       }
 
       const data = await response.json()
-      
+
       if (data.error) {
         throw new Error(data.error.message || 'Unknown API error')
       }
