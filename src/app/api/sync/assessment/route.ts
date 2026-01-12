@@ -111,6 +111,8 @@ export async function POST() {
           return { skipped: 1, upserted: 0, notInTr2: 0 }
         }
 
+        const bulkOps = []
+
         for (let i = 1; i < rows.length; i++) {
           const row = rows[i]
           const rawUid = row[uidIndex]
@@ -163,27 +165,32 @@ export async function POST() {
             assessment.raw_data = rawData
           }
 
-          await db.collection('students').updateOne(
-            { student_uid },
-            {
-              $set: {
-                student_uid,
-                basic_info: {
-                  name: nameIndex !== -1 ? row[nameIndex] : '',
-                  college_name: collegeName,
+          bulkOps.push({
+            updateOne: {
+              filter: { student_uid },
+              update: {
+                $set: {
+                  student_uid,
+                  basic_info: {
+                    name: nameIndex !== -1 ? row[nameIndex] : '',
+                    college_name: collegeName,
+                  },
+                  assessment,
+                  'progress.assessment_completed': true,
+                  'timestamps.updated_at': new Date(),
                 },
-                assessment,
-                'progress.assessment_completed': true,
-                'timestamps.updated_at': new Date(),
+                $setOnInsert: {
+                  'timestamps.created_at': new Date(),
+                },
               },
-              $setOnInsert: {
-                'timestamps.created_at': new Date(),
-              },
-            },
-            { upsert: true }
-          )
+              upsert: true
+            }
+          })
+        }
 
-          localUpserted++
+        if (bulkOps.length > 0) {
+          await db.collection('students').bulkWrite(bulkOps)
+          localUpserted += bulkOps.length
         }
       } catch (error: any) {
         console.error(`Error processing ${collegeName} (sheet_id: ${sheetId}):`, error.message)
