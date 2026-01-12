@@ -83,21 +83,46 @@ export async function POST() {
       })
     }
 
-    // 3. Header + data rows
-    const HEADER_ROW_INDEX = 1
-    const DATA_START_INDEX = 2
+    // 3. Header + data rows: Dynamic detection
+    let HEADER_ROW_INDEX = -1
+    const UID_CANDIDATES = ['candidate uid', 'student uid', 'uid', 'uids', 'UIDs']
 
+    // Normalize helper
+    const normalize = (s: any) => (s || '').toString().trim().toLowerCase()
+
+    // Scan first 10 rows for a header
+    for (let r = 0; r < Math.min(rows.length, 10); r++) {
+      const row = rows[r]
+      // Check if this row contains our target column
+      if (row.some((cell: any) => UID_CANDIDATES.includes(normalize(cell)))) {
+        HEADER_ROW_INDEX = r
+        break
+      }
+    }
+
+    if (HEADER_ROW_INDEX === -1) {
+      // Fallback/Default
+      HEADER_ROW_INDEX = 1
+      console.warn('Could not detect header row dynamically, falling back to index 1')
+    }
+
+    const DATA_START_INDEX = HEADER_ROW_INDEX + 1
     const headers = rows[HEADER_ROW_INDEX]
 
-    // 4. Required base columns
-    const uidIndex = headers.indexOf('Candidate UID')
-    const nameIndex = headers.indexOf('Candidate Name')
-    const collegeIndex = headers.indexOf('College name') 
-    console.log('college :', collegeIndex);
-    
+    // 4. Required base columns (Case-insensitive search)
+    const findColIndex = (candidates: string[]) => {
+      return headers.findIndex((h: string) => candidates.includes(normalize(h)))
+    }
+
+    const uidIndex = findColIndex(UID_CANDIDATES)
+    const nameIndex = findColIndex(['candidate name', 'student name', 'name', 'full name']);
+    const collegeIndex = findColIndex(['college name', 'college', 'university', 'institute']);
+
+    console.log(`[TR2 Debug] Header Row: ${HEADER_ROW_INDEX}, UID Index: ${uidIndex}, College Index: ${collegeIndex}`);
 
     if (uidIndex === -1) {
-      throw new Error(`Candidate UID column not found`)
+      console.error('Available headers in identified row:', headers)
+      throw new Error(`Candidate UID column not found in TR2 sheet (checked row ${HEADER_ROW_INDEX})`)
     }
 
     // 5. MongoDB
