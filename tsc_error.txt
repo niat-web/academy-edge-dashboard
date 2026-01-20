@@ -1,0 +1,2 @@
+src/app/students/[student_uid]/page.tsx(1183,23): error TS1005: ')' expected.
+src/app/students/[student_uid]/page.tsx(1267,21): error TS1005: ')' expected.

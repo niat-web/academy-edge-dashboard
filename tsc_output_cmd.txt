@@ -1,0 +1,5 @@
+src/app/students/[student_uid]/page.tsx(1212,58): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/app/students/[student_uid]/page.tsx(1238,41): error TS18048: 'text' is possibly 'undefined'.
+src/app/students/[student_uid]/page.tsx(1239,84): error TS18048: 'text' is possibly 'undefined'.
+src/app/students/[student_uid]/page.tsx(1242,39): error TS18048: 'text' is possibly 'undefined'.
