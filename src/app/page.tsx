@@ -183,13 +183,13 @@ export default function Dashboard() {
     const cookies = document.cookie.split(';')
     const adminSession = cookies.find(c => c.trim().startsWith('admin_session='))
     const accessType = cookies.find(c => c.trim().startsWith('access_type='))
-    
+
     // If user came from student profile and doesn't have admin session, redirect
     if (accessType?.includes('student_profile') && !adminSession) {
       router.push('/access-denied')
       return
     }
-    
+
     setAccessChecked(true)
   }, [router])
 
@@ -208,7 +208,7 @@ export default function Dashboard() {
   }
 
   const handleRowClick = (studentUid: string) => {
-    router.push(`/students/${studentUid}`)
+    window.open(`/students/${studentUid}`, '_blank')
   }
 
   const shortenUrl = (url: string, studentName?: string) => {
@@ -526,6 +526,8 @@ export default function Dashboard() {
                               <a
                                 href={profileUrl}
                                 onClick={(e) => e.stopPropagation()}
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
                                 title={profileUrl}
                               >
