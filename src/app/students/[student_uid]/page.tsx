@@ -262,7 +262,10 @@ export default function StudentProfile() {
                       isHire ? 'bg-blue-100 text-blue-700' :
                         'bg-yellow-100 text-yellow-700'
                       }`}>
-                      {recommendation.toUpperCase()}
+                      {recommendation === 'Strong Hire' ? 'STRONG' :
+                        recommendation === 'Hire' ? 'MEDIUM' :
+                          recommendation === 'Weak Hire' ? 'LOW' :
+                            recommendation.toUpperCase()}
                     </div>
                   )
                 })()}
