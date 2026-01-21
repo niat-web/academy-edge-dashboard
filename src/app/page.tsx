@@ -118,7 +118,10 @@ export default function Dashboard() {
           setAvailableInterviews(data.availableInterviews)
         }
         if (data.availableVerdicts) {
-          setAvailableVerdicts(data.availableVerdicts)
+          // Sort verdicts: Strong Hire -> Hire -> Weak Hire
+          const order: Record<string, number> = { 'Strong Hire': 1, 'Hire': 2, 'Weak Hire': 3 }
+          const sorted = data.availableVerdicts.sort((a: string, b: string) => (order[a] || 99) - (order[b] || 99))
+          setAvailableVerdicts(sorted)
         }
       }
     } catch (error) {
@@ -243,6 +246,16 @@ export default function Dashboard() {
     if (interviewSearch === 'tr1') return student.tr1_score ? String(student.tr1_score) : null
     if (interviewSearch === 'tr2') return student.tr2_score ? String(student.tr2_score) : null
     return null
+  }
+
+  const getVerdictDisplay = (verdict: string | null | undefined) => {
+    if (!verdict) return 'N/A'
+    switch (verdict) {
+      case 'Strong Hire': return 'Strong'
+      case 'Hire': return 'Medium'
+      case 'Weak Hire': return 'Low'
+      default: return verdict
+    }
   }
 
   // Show loading while checking access
@@ -391,7 +404,7 @@ export default function Dashboard() {
                 <option value="">All Verdicts</option>
                 {availableVerdicts.map((verdict) => (
                   <option key={verdict} value={verdict}>
-                    {verdict}
+                    {getVerdictDisplay(verdict)}
                   </option>
                 ))}
               </select>
@@ -561,7 +574,7 @@ export default function Dashboard() {
                                   student.final_verdict === 'Weak Hire' ? 'text-yellow-600' :
                                     'text-gray-500'
                                 }`}>
-                                {student.final_verdict || 'N/A'}
+                                {getVerdictDisplay(student.final_verdict)}
                               </span>
                             </td>
                           </>
@@ -587,7 +600,7 @@ export default function Dashboard() {
                                 student.final_verdict === 'Weak Hire' ? 'text-yellow-600' :
                                   'text-gray-500'
                               }`}>
-                              {student.final_verdict || 'N/A'}
+                              {getVerdictDisplay(student.final_verdict)}
                             </span>
                           </td>
                         )}
