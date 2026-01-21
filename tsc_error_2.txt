@@ -1,0 +1,12 @@
+src/app/students/[student_uid]/page.tsx(849,80): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/app/students/[student_uid]/page.tsx(849,111): error TS7006: Parameter 'sentence' implicitly has an 'any' type.
+src/app/students/[student_uid]/page.tsx(849,121): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+src/app/students/[student_uid]/page.tsx(1190,79): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/app/students/[student_uid]/page.tsx(1190,110): error TS7006: Parameter 'sentence' implicitly has an 'any' type.
+src/app/students/[student_uid]/page.tsx(1190,120): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+src/app/students/[student_uid]/page.tsx(1555,76): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/app/students/[student_uid]/page.tsx(1555,107): error TS7006: Parameter 'sentence' implicitly has an 'any' type.
+src/app/students/[student_uid]/page.tsx(1555,117): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+src/app/students/[student_uid]/page.tsx(1989,75): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/app/students/[student_uid]/page.tsx(1989,106): error TS7006: Parameter 'sentence' implicitly has an 'any' type.
+src/app/students/[student_uid]/page.tsx(1989,116): error TS7006: Parameter 'idx' implicitly has an 'any' type.

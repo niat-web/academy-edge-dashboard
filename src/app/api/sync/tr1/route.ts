@@ -3,37 +3,69 @@ import clientPromise from '@/lib/mongodb'
 import { getSheetsClient } from '@/lib/googlesheets'
 
 /**
- * TR1 Header → Schema mapping
- * Header names MUST match row-2 headers exactly
+ * TR1 DB Path → Schema mapping
+ * value is an array of possible header names (case-insensitive fuzzy match)
  */
-const TR1_FIELD_MAP: Record<string, string> = {
-  'Interview Date': 'interview_date',
-  'Interview Panelist': 'interview_panelist',
-  'Interview Recording Link': 'interview_recording_link',
-  'Coding Problem asked': 'coding_problem_asked',
+const TR1_FIELD_CONFIG: Record<string, string[]> = {
+  'interview_date': ['Interview Date'],
+  'interview_panelist': ['Interview Panelist'],
+  'interview_recording_link': ['Interview Recording Link'],
+  'coding_problem_asked': ['Coding Problem asked'],
 
-  'Communication': 'communication',
-  'Remarks on Communication': 'remarks_on_communication',
-  'Remarks on Internships & Projects': 'remarks_on_internships_projects',
+  'communication': ['Communication'],
+  'remarks_on_communication': ['Remarks on Communication'],
+  'remarks_on_internships_projects': [
+    'Remarks on Internships & Projects',
+    'Remarks on Internship & Projects',
+    'Remarks on Internships and Projects'
+  ],
 
-  'Problem 1 - Problem Solving (Rating out of 5)': 'problem_1.problem_solving_rating',
-  'Problem 1 - Remarks on Problem Solving': 'problem_1.problem_solving_remarks',
-  'Problem 1 - Code Implementation (Rating out of 5)': 'problem_1.code_implementation_rating',
-  'Problem 1 - Remarks on Code Implementation': 'problem_1.code_implementation_remarks',
+  'problem_1.problem_solving_rating': [
+    'Problem 1 - Problem Solving (Rating out of 5)',
+    'Problem 1 -\nProblem Solving (Rating out of 5)',
+    'Problem 1 - Problem Solving'
+  ],
+  'problem_1.problem_solving_remarks': [
+    'Problem 1 - Remarks on Problem Solving',
+    'Problem 1 -\nRemarks on Problem Solving'
+  ],
+  'problem_1.code_implementation_rating': [
+    'Problem 1 - Code Implementation (Rating out of 5)',
+    'Problem 1 -\nCode Implementation (Rating out of 5)',
+    'Problem 1 - Code Implementation'
+  ],
+  'problem_1.code_implementation_remarks': [
+    'Problem 1 - Remarks on Code Implementation',
+    'Problem 1 -\nRemarks on Code Implementation'
+  ],
 
-  'Problem 2 - Problem Solving (Rating out of 5)': 'problem_2.problem_solving_rating',
-  'Problem 2 - Remarks on Problem Solving': 'problem_2.problem_solving_remarks',
-  'Problem 2 - Code Implementation (Rating out of 5)': 'problem_2.code_implementation_rating',
-  'Problem 2 - Remarks on Code Implementation': 'problem_2.code_implementation_remarks',
+  'problem_2.problem_solving_rating': [
+    'Problem 2 - Problem Solving (Rating out of 5)',
+    'Problem 2 -\nProblem Solving (Rating out of 5)',
+    'Problem 2 - Problem Solving'
+  ],
+  'problem_2.problem_solving_remarks': [
+    'Problem 2 - Remarks on Problem Solving',
+    'Problem 2 -\nRemarks on Problem Solving'
+  ],
+  'problem_2.code_implementation_rating': [
+    'Problem 2 - Code Implementation (Rating out of 5)',
+    'Problem 2 -\nCode Implementation (Rating out of 5)',
+    'Problem 2 - Code Implementation'
+  ],
+  'problem_2.code_implementation_remarks': [
+    'Problem 2 - Remarks on Code Implementation',
+    'Problem 2 -\nRemarks on Code Implementation'
+  ],
 
-  'DSA Theory': 'dsa_theory',
-  'Remarks on DSA Theory': 'remarks_on_dsa_theory',
-  'Core CS Theory': 'core_cs_theory',
-  'Remarks on Core CS Theory': 'remarks_on_core_cs_theory',
+  'dsa_theory': ['DSA Theory', 'DSA  Theory'],
+  'remarks_on_dsa_theory': ['Remarks on DSA Theory'],
+  'core_cs_theory': ['Core CS Theory'],
+  'remarks_on_core_cs_theory': ['Remarks on Core CS Theory'],
 
-  'Overall Comments': 'overall_comments',
-  'Total Score (out of 100)': 'total_score',
-  'DSA CD Team Remarks': 'dsa_cd_team_remarks',
+  'overall_comments': ['Overall Comments'],
+  'total_score': ['Total Score (out of 100)', 'Total Score'],
+  'dsa_cd_team_remarks': ['DSA CD Team Remarks', 'DSA/CD Team Remarks'],
 }
 
 /**
@@ -109,9 +141,10 @@ export async function POST() {
     const headers = headersRaw.map((h: any) => normalizeCell(h))
 
     function findHeaderIndexNormalized(headersArr: string[], candidates: string[]) {
-      const low = headersArr.map((h) => h.toLowerCase())
+      const low = headersArr.map((h) => h.toLowerCase().replace(/\s+/g, ' ').trim()) // Normalize whitespace
       for (const candidate of candidates) {
-        const ci = low.indexOf(candidate.toLowerCase())
+        const candNorm = candidate.toLowerCase().replace(/\s+/g, ' ').trim()
+        const ci = low.indexOf(candNorm)
         if (ci !== -1) return ci
       }
       return -1
@@ -125,6 +158,10 @@ export async function POST() {
     // 5. MongoDB
     const client = await clientPromise
     const db = client.db('student_dashboard')
+
+    // [New] Fetch valid UIDs from TR2 to enforce hierarchy
+    const tr2Students = await db.collection('students-tr2').find({}, { projection: { student_uid: 1 } }).toArray()
+    const validUids = new Set(tr2Students.map(s => s.student_uid))
 
     let updatedCount = 0
     let skippedRows = 0
@@ -146,11 +183,17 @@ export async function POST() {
         continue
       }
 
+      // [New] Enforce TR2 dependency
+      if (!validUids.has(student_uid)) {
+        skippedRows++
+        continue
+      }
+
       // 8. Build structured TR1 object
       const structuredTR1: any = {}
 
-      for (const [header, path] of Object.entries(TR1_FIELD_MAP)) {
-        const colIndex = findHeaderIndexNormalized(headers, [header])
+      for (const [path, candidates] of Object.entries(TR1_FIELD_CONFIG)) {
+        const colIndex = findHeaderIndexNormalized(headers, candidates)
         if (colIndex === -1) continue
 
         const value = row[colIndex] ?? ''
