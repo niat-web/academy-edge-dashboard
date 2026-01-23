@@ -49,7 +49,8 @@ import {
   Wrench,
 
   UserCheck,
-  Play
+  Play,
+  DollarSign
 } from 'lucide-react'
 import ScoreCard from '@/components/ScoreCard'
 import ProgressIndicator from '@/components/ProgressIndicator'
@@ -80,14 +81,23 @@ interface StudentData {
 }
 
 interface Verdict {
-  summary?: string
-  strengths?: string[]
-  improvements?: string[]
-  recommendation?: 'Strong Hire' | 'Hire' | 'Weak Hire'
+  // New fields
+  assessment_remarks?: string
+  tr1_remarks?: string
+  tr2_overall_remarks?: string
+  technical_strengths?: string[]
+  development_areas?: string[]
   recommended_role_fit?: string
+  why_this_candidate?: string[]
+  role_fit?: string[]
+  overall_summary?: string
+  recommendation?: 'Strong Hire' | 'Hire' | 'Weak Hire'
   generated_at?: Date | string
   model?: string
   // Legacy fields for backward compatibility
+  summary?: string
+  strengths?: string[]
+  improvements?: string[]
   decision?: string
   comments?: string
   internal_review?: string
@@ -105,6 +115,7 @@ export default function StudentProfile() {
   const [student, setStudent] = useState<StudentData | null>(null)
   const [verdict, setVerdict] = useState<Verdict | null>(null)
   const [loading, setLoading] = useState(true)
+  const [generatingVerdict, setGeneratingVerdict] = useState(false)
   const [activeTab, setActiveTab] = useState<'overall' | 'tr1' | 'tr2' | 'verdict'>('overall')
   const [detailedScoresTab, setDetailedScoresTab] = useState<'assessment' | 'tr1' | 'tr2' | 'remarks'>('assessment')
 
@@ -129,7 +140,18 @@ export default function StudentProfile() {
 
   const fetchVerdict = async () => {
     try {
-      const response = await fetch(`/api/students/${student_uid}/verdict`)
+      const response = await fetch(`/api/students/${student_uid}/verdict`, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`HTTP error! status: ${response.status}, body: ${errorText}`)
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
       const data = await response.json()
       if (data.status === 'ok') {
         if (data.data) {
@@ -141,32 +163,53 @@ export default function StudentProfile() {
       } else {
         setVerdict(null)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching verdict:', error)
-      setVerdict(null)
+      // Don't set verdict to null if it's just a network error - might be temporary
+      if (error.message && error.message.includes('Failed to fetch')) {
+        console.warn('Network error fetching verdict, will retry on next attempt')
+      } else {
+        setVerdict(null)
+      }
     }
   }
 
   const generateVerdict = async () => {
+    setGeneratingVerdict(true)
     try {
       const response = await fetch(`/api/students/${student_uid}/verdict/generate`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       })
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`HTTP error! status: ${response.status}, body: ${errorText}`)
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
       const data = await response.json()
       if (data.status === 'ok' && data.data) {
         setVerdict(data.data)
       } else {
+        console.warn('Verdict generation returned non-ok status:', data)
         // If generation failed, try fetching again after a short delay
         setTimeout(() => {
           fetchVerdict()
         }, 2000)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating verdict:', error)
-      // Retry fetching after error
-      setTimeout(() => {
-        fetchVerdict()
-      }, 2000)
+      // Only retry if it's not a network error that suggests the endpoint doesn't exist
+      if (error.message && !error.message.includes('Failed to fetch')) {
+        setTimeout(() => {
+          fetchVerdict()
+        }, 2000)
+      }
+    } finally {
+      setGeneratingVerdict(false)
     }
   }
 
@@ -283,62 +326,111 @@ export default function StudentProfile() {
                   const csFundamentalsSection = scores.cs_fundamentals_section_score ? parseFloat(String(scores.cs_fundamentals_section_score)) : null
                   const communication = student.tr1?.communication ? parseFloat(String(student.tr1.communication)) : null
 
+                  // Calculate percentages for circular progress
+                  const dsaPercentage = dsaScore !== null && dsaSection !== null && dsaSection > 0 
+                    ? Math.round((dsaScore / dsaSection) * 100) 
+                    : null
+                  const codingPercentage = codingScore !== null && codingSection !== null && codingSection > 0 
+                    ? Math.round((codingScore / codingSection) * 100) 
+                    : null
+                  const csPercentage = csFundamentalsScore !== null && csFundamentalsSection !== null && csFundamentalsSection > 0 
+                    ? Math.round((csFundamentalsScore / csFundamentalsSection) * 100) 
+                    : null
+
+                  // Circular progress component
+                  const CircularProgress = ({ percentage, size = 80 }: { percentage: number | null, size?: number }) => {
+                    if (percentage === null) return <div className="text-2xl font-bold text-gray-400">N/A</div>
+                    const radius = (size - 8) / 2
+                    const circumference = 2 * Math.PI * radius
+                    const offset = circumference - (percentage / 100) * circumference
+                    
+                    return (
+                      <div className="relative" style={{ width: size, height: size }}>
+                        <svg className="transform -rotate-90" width={size} height={size}>
+                          <circle
+                            cx={size / 2}
+                            cy={size / 2}
+                            r={radius}
+                            stroke="currentColor"
+                            strokeWidth="6"
+                            fill="none"
+                            className="text-gray-200"
+                          />
+                          <circle
+                            cx={size / 2}
+                            cy={size / 2}
+                            r={radius}
+                            stroke="currentColor"
+                            strokeWidth="6"
+                            fill="none"
+                            strokeDasharray={circumference}
+                            strokeDashoffset={offset}
+                            strokeLinecap="round"
+                            className="text-blue-600 transition-all duration-300"
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-xl font-bold text-blue-600">{percentage}</span>
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  // Star rating component
+                  const StarRating = ({ rating }: { rating: number | null }) => {
+                    if (rating === null) return <div className="text-2xl font-bold text-gray-400">N/A</div>
+                    const fullStars = Math.floor(rating)
+                    const hasHalfStar = rating % 1 >= 0.5
+                    
+                    return (
+                      <div className="flex flex-col items-center justify-center" style={{ minHeight: '100px' }}>
+                        <div className="flex gap-1 mb-3">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <svg
+                              key={star}
+                              className={`w-6 h-6 ${star <= fullStars ? 'text-yellow-400 fill-current' : star === fullStars + 1 && hasHalfStar ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
+                              viewBox="0 0 24 24"
+                            >
+                              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                            </svg>
+                          ))}
+                        </div>
+                        <span className="text-lg font-bold text-orange-500">{rating}/5</span>
+                      </div>
+                    )
+                  }
+
                   return (
                     <>
-                      {/* DSA Score */}
-                      <div className="bg-gradient-to-br from-blue-50/50 to-white rounded-xl border border-blue-100 p-5 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5">
-                        <div className="flex items-center gap-2 text-[10px] font-bold text-blue-600 mb-3 uppercase tracking-wider">
-                          <div className="p-1.5 bg-blue-100 rounded-lg">
-                            <Code2 className="w-4 h-4" />
-                          </div>
-                          DSA SCORE
-                        </div>
-                        <div className="text-3xl font-bold text-gray-900 leading-none">
-                          {dsaScore !== null ? dsaScore : 'N/A'}
-                          {dsaSection !== null && dsaScore !== null && <span className="text-lg text-gray-400 font-medium ml-1">/ {dsaSection}</span>}
+                      {/* DSA */}
+                      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm flex flex-col items-center">
+                        <CircularProgress percentage={dsaPercentage} size={100} />
+                        <div className="mt-4 text-center">
+                          <div className="text-base font-bold text-gray-900">DSA</div>
                         </div>
                       </div>
 
-                      {/* Coding */}
-                      <div className="bg-gradient-to-br from-indigo-50/50 to-white rounded-xl border border-indigo-100 p-5 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5">
-                        <div className="flex items-center gap-2 text-[10px] font-bold text-indigo-600 mb-3 uppercase tracking-wider">
-                          <div className="p-1.5 bg-indigo-100 rounded-lg">
-                            <Terminal className="w-4 h-4" />
-                          </div>
-                          CODING
-                        </div>
-                        <div className="text-3xl font-bold text-gray-900 leading-none">
-                          {codingScore !== null && codingSection !== null && codingSection > 0
-                            ? <>{((codingScore / codingSection) * 100).toFixed(1)}<span className="text-lg text-gray-400 font-medium ml-0.5">%</span></>
-                            : codingScore !== null ? codingScore : 'N/A'}
+                      {/* Coding Speed */}
+                      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm flex flex-col items-center">
+                        <CircularProgress percentage={codingPercentage} size={100} />
+                        <div className="mt-4 text-center">
+                          <div className="text-base font-bold text-gray-900">Coding Speed</div>
                         </div>
                       </div>
 
                       {/* CS Fundamentals */}
-                      <div className="bg-gradient-to-br from-emerald-50/50 to-white rounded-xl border border-emerald-100 p-5 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5">
-                        <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-600 mb-3 uppercase tracking-wider">
-                          <div className="p-1.5 bg-emerald-100 rounded-lg">
-                            <BookOpen className="w-4 h-4" />
-                          </div>
-                          CS FUNDAMENTALS
-                        </div>
-                        <div className="text-3xl font-bold text-gray-900 leading-none">
-                          {csFundamentalsScore !== null && csFundamentalsSection !== null && csFundamentalsSection > 0
-                            ? <>{((csFundamentalsScore / csFundamentalsSection) * 100).toFixed(1)}<span className="text-lg text-gray-400 font-medium ml-0.5">%</span></>
-                            : csFundamentalsScore !== null ? csFundamentalsScore : 'N/A'}
+                      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm flex flex-col items-center">
+                        <CircularProgress percentage={csPercentage} size={100} />
+                        <div className="mt-4 text-center">
+                          <div className="text-base font-bold text-gray-900">CS Fundamentals</div>
                         </div>
                       </div>
 
                       {/* Communication */}
-                      <div className="bg-gradient-to-br from-purple-50/50 to-white rounded-xl border border-purple-100 p-5 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5">
-                        <div className="flex items-center gap-2 text-[10px] font-bold text-purple-600 mb-3 uppercase tracking-wider">
-                          <div className="p-1.5 bg-purple-100 rounded-lg">
-                            <MessageSquare className="w-4 h-4" />
-                          </div>
-                          COMMUNICATION
-                        </div>
-                        <div className="text-3xl font-bold text-gray-900 leading-none">
-                          {communication !== null ? <>{communication}<span className="text-lg text-gray-400 font-medium ml-1">/ 5</span></> : 'N/A'}
+                      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm flex flex-col items-center justify-center">
+                        <StarRating rating={communication} />
+                        <div className="mt-4 text-center">
+                          <div className="text-base font-bold text-gray-900">Communication</div>
                         </div>
                       </div>
                     </>
@@ -347,20 +439,59 @@ export default function StudentProfile() {
               </div>
 
               {/* Overall Summary */}
-              {verdict?.summary && (
+              {(verdict?.overall_summary || verdict?.summary) && (
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
-                  <div className="flex items-center gap-2 mb-3">
+                  <div className="flex items-center gap-2 mb-4">
                     <FileText className="w-5 h-5 text-gray-600" />
                     <h3 className="text-lg font-semibold text-gray-900">Executive Summary</h3>
                   </div>
-                  <ul className="space-y-2">
-                    {verdict.summary.split('. ').filter(s => s.trim().length > 0).map((sentence, idx) => (
-                      <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
-                        <Check className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
-                        <span>{sentence.trim()}{!sentence.trim().endsWith('.') ? '.' : ''}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  
+                  {/* Blue Bordered Box with 3 Sections */}
+                  <div className="border-2 border-blue-500 rounded-lg overflow-hidden">
+                    {/* Section 1: Overall Summary */}
+                    <div className="p-4 border-b-2 border-blue-500">
+                      <ul className="space-y-2">
+                        {(verdict.overall_summary || verdict.summary || '').split('. ').filter(s => s.trim().length > 0).map((sentence, idx) => (
+                          <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+                            <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+                            <span>{sentence.trim()}{!sentence.trim().endsWith('.') ? '.' : ''}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Section 2: Best Fit Roles */}
+                    <div className="p-4 border-b-2 border-blue-500">
+                      <div className="space-y-4">
+                        {/* Best Fit Roles */}
+                        {verdict.role_fit && verdict.role_fit.length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Briefcase className="w-5 h-5 text-gray-600" />
+                              <h4 className="text-base font-semibold text-gray-900">BEST FIT ROLES</h4>
+                            </div>
+                            <p className="text-sm text-gray-700 ml-7">
+                              {verdict.role_fit.slice(0, 3).join(' · ')}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Section 3: Why This Candidate (with blue shading) */}
+                    {verdict.why_this_candidate && verdict.why_this_candidate.length > 0 && (
+                      <div className="p-4 bg-blue-50">
+                        <h4 className="text-base font-bold text-blue-900 mb-3">Why This Candidate?</h4>
+                        <ul className="space-y-2">
+                          {verdict.why_this_candidate.map((point, idx) => (
+                            <li key={idx} className="text-sm text-gray-700">
+                              {point}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -517,6 +648,57 @@ export default function StudentProfile() {
                       )}
                     </div>
                   </div>
+
+                  {/* Second Row: LeetCode Problem 1 and Problem 2 */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* LeetCode Problem 1 */}
+                    <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
+                        LeetCode Problem 1
+                      </div>
+
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                          <Code2 className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">Problem Solution</p>
+                          <p className="text-xs text-gray-500">View code implementation</p>
+                        </div>
+                      </div>
+
+                      <button
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border-2 border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-semibold text-sm"
+                      >
+                        <Code2 className="w-4 h-4 text-blue-600" />
+                        VIEW CODE
+                      </button>
+                    </div>
+
+                    {/* LeetCode Problem 2 */}
+                    <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
+                        LeetCode Problem 2
+                      </div>
+
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                          <Code2 className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">Problem Solution</p>
+                          <p className="text-xs text-gray-500">View code implementation</p>
+                        </div>
+                      </div>
+
+                      <button
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border-2 border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-semibold text-sm"
+                      >
+                        <Code2 className="w-4 h-4 text-blue-600" />
+                        VIEW CODE
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -526,20 +708,19 @@ export default function StudentProfile() {
                   <h3 className="text-lg font-semibold text-gray-900">Detailed Scores</h3>
                 </div>
 
-                {/* Tab Navigation - Centered with equal spacing */}
-                {/* Tab Navigation - Pill Style */}
-                <div className="flex justify-center mb-8">
-                  <div className="bg-gray-100 p-1.5 rounded-xl inline-flex items-center gap-1 shadow-inner">
+                {/* Tab Navigation - Full Width with equal spacing */}
+                <div className="mb-8">
+                  <div className="bg-gray-100 p-1.5 rounded-xl flex items-center gap-1 shadow-inner">
                     {[
-                      { id: 'assessment', label: 'Overall Evaluation', icon: LayoutDashboard },
-                      { id: 'tr1', label: 'TR1', icon: FileJson },
-                      { id: 'tr2', label: 'TR2', icon: Server },
+                      { id: 'assessment', label: 'Assessment', icon: LayoutDashboard },
+                      { id: 'tr1', label: 'Interview 1: DSA', icon: FileJson },
+                      { id: 'tr2', label: 'Interview 2: Projects', icon: Server },
                       { id: 'remarks', label: 'Final Verdict', icon: Award },
                     ].map((tab) => (
                       <button
                         key={tab.id}
                         onClick={() => setDetailedScoresTab(tab.id as any)}
-                        className={`px-4 py-2 font-medium text-sm transition-all rounded-lg flex items-center gap-2 ${detailedScoresTab === tab.id
+                        className={`flex-1 px-4 py-2 font-medium text-sm transition-all rounded-lg flex items-center justify-center gap-2 ${detailedScoresTab === tab.id
                           ? 'bg-white text-blue-700 shadow-sm ring-1 ring-black/5'
                           : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
                           }`}
@@ -571,98 +752,85 @@ export default function StudentProfile() {
                               <BarChart3 className="w-5 h-5 text-gray-600" />
                               <h5 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Assessment Scores</h5>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                              {/* Coding Card */}
-                              {codingScore !== null && codingMax !== null && (
-                                <div className="bg-gradient-to-br from-blue-50 to-white border border-blue-100 rounded-xl p-5 hover:shadow-md transition-shadow">
-                                  <div className="flex justify-between items-start mb-4">
-                                    <div className="p-2 bg-blue-100 rounded-lg">
-                                      <Terminal className="w-5 h-5 text-blue-600" />
-                                    </div>
-                                    <span className="text-xs font-bold px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
-                                      {((codingScore / codingMax) * 100).toFixed(0)}%
-                                    </span>
-                                  </div>
-                                  <h6 className="text-sm font-semibold text-gray-700 mb-1">Coding</h6>
-                                  <div className="flex items-baseline gap-1">
-                                    <span className="text-2xl font-bold text-gray-900">{codingScore.toFixed(1)}</span>
-                                    <span className="text-sm text-gray-500">/ {codingMax}</span>
-                                  </div>
-                                  <div className="w-full h-1.5 bg-blue-100 rounded-full mt-3 overflow-hidden">
-                                    <div
-                                      className="h-full bg-blue-600 rounded-full"
-                                      style={{ width: `${Math.min(100, (codingScore / codingMax) * 100)}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              )}
+                            
+                            {/* Table Format */}
+                            <div className="overflow-x-auto">
+                              <table className="w-full">
+                                <thead>
+                                  <tr>
+                                    <th className="text-left py-3 px-4 font-bold text-gray-900">Assessment</th>
+                                    <th className="text-left py-3 px-4 font-bold text-gray-900">Score</th>
+                                  </tr>
+                                  <tr>
+                                    <td colSpan={2} className="p-0">
+                                      <div className="h-0.5 bg-blue-500"></div>
+                                    </td>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {/* Coding Row */}
+                                  {codingScore !== null && codingMax !== null && (
+                                    <>
+                                      <tr>
+                                        <td className="py-3 px-4 text-gray-900">Coding</td>
+                                        <td className="py-3 px-4">
+                                          <span className="inline-block px-3 py-1 bg-blue-50 text-blue-600 rounded-md font-medium">
+                                            {codingScore.toFixed(1)}/{codingMax}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                      <tr>
+                                        <td colSpan={2} className="p-0">
+                                          <div className="h-px bg-gray-200"></div>
+                                        </td>
+                                      </tr>
+                                    </>
+                                  )}
 
-                              {/* DSA MCQ Card */}
-                              {dsaScore !== null && dsaMax !== null && (
-                                <div className="bg-gradient-to-br from-indigo-50 to-white border border-indigo-100 rounded-xl p-5 hover:shadow-md transition-shadow">
-                                  <div className="flex justify-between items-start mb-4">
-                                    <div className="p-2 bg-indigo-100 rounded-lg">
-                                      <Brain className="w-5 h-5 text-indigo-600" />
-                                    </div>
-                                    <span className="text-xs font-bold px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full">
-                                      {((dsaScore / dsaMax) * 100).toFixed(0)}%
-                                    </span>
-                                  </div>
-                                  <h6 className="text-sm font-semibold text-gray-700 mb-1">DSA MCQ</h6>
-                                  <div className="flex items-baseline gap-1">
-                                    <span className="text-2xl font-bold text-gray-900">{dsaScore}</span>
-                                    <span className="text-sm text-gray-500">/ {dsaMax}</span>
-                                  </div>
-                                  <div className="w-full h-1.5 bg-indigo-100 rounded-full mt-3 overflow-hidden">
-                                    <div
-                                      className="h-full bg-indigo-600 rounded-full"
-                                      style={{ width: `${Math.min(100, (dsaScore / dsaMax) * 100)}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              )}
+                                  {/* DSA MCQ Row */}
+                                  {dsaScore !== null && dsaMax !== null && (
+                                    <>
+                                      <tr>
+                                        <td className="py-3 px-4 text-gray-900">DSA MCQ</td>
+                                        <td className="py-3 px-4">
+                                          <span className="inline-block px-3 py-1 bg-orange-50 text-orange-600 rounded-md font-medium">
+                                            {dsaScore}/{dsaMax}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                      <tr>
+                                        <td colSpan={2} className="p-0">
+                                          <div className="h-px bg-gray-200"></div>
+                                        </td>
+                                      </tr>
+                                    </>
+                                  )}
 
-                              {/* CS Fundamentals Card */}
-                              {csScore !== null && csMax !== null && (
-                                <div className="bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 rounded-xl p-5 hover:shadow-md transition-shadow">
-                                  <div className="flex justify-between items-start mb-4">
-                                    <div className="p-2 bg-emerald-100 rounded-lg">
-                                      <BookOpen className="w-5 h-5 text-emerald-600" />
-                                    </div>
-                                    <span className="text-xs font-bold px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full">
-                                      {((csScore / csMax) * 100).toFixed(0)}%
-                                    </span>
-                                  </div>
-                                  <h6 className="text-sm font-semibold text-gray-700 mb-1">CS Fundamentals</h6>
-                                  <div className="flex items-baseline gap-1">
-                                    <span className="text-2xl font-bold text-gray-900">{csScore}</span>
-                                    <span className="text-sm text-gray-500">/ {csMax}</span>
-                                  </div>
-                                  <div className="w-full h-1.5 bg-emerald-100 rounded-full mt-3 overflow-hidden">
-                                    <div
-                                      className="h-full bg-emerald-600 rounded-full"
-                                      style={{ width: `${Math.min(100, (csScore / csMax) * 100)}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              )}
+                                  {/* CS Fundamentals Row */}
+                                  {csScore !== null && csMax !== null && (
+                                    <>
+                                      <tr>
+                                        <td className="py-3 px-4 text-gray-900">CS Fundamentals</td>
+                                        <td className="py-3 px-4">
+                                          <span className="inline-block px-3 py-1 bg-blue-50 text-blue-600 rounded-md font-medium">
+                                            {csScore}/{csMax}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    </>
+                                  )}
+                                </tbody>
+                              </table>
                             </div>
                           </div>
 
-                          {/* Remarks Box */}
-                          {verdict?.summary && (
+                          {/* Assessment Remarks */}
+                          {verdict?.assessment_remarks && (
                             <div>
-                              <h5 className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-3">
-                                <FileText className="w-5 h-5 text-gray-600" />Overall Remarks</h5>
                               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                                <ul className="space-y-2">
-                                  {verdict.summary.split('. ').filter(s => s.trim().length > 0).map((sentence, idx) => (
-                                    <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
-                                      <Check className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
-                                      <span>{sentence.trim()}{!sentence.trim().endsWith('.') ? '.' : ''}</span>
-                                    </li>
-                                  ))}
-                                </ul>
+                                <p className="text-sm text-gray-700 leading-relaxed">
+                                  {verdict.assessment_remarks}
+                                </p>
                               </div>
                             </div>
                           )}
@@ -673,271 +841,112 @@ export default function StudentProfile() {
                     {/* TR1 Tab */}
                     {detailedScoresTab === 'tr1' && student.tr1 && Object.keys(student.tr1).length > 0 && (
                       <div className="space-y-4">
-                        {/* Interview Date */}
-                        {student.tr1.interview_date && (
-                          <div>
-                            <h5 className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-3">
-                              <Calendar className="w-5 h-5 text-gray-600" />
-                              Interview Date
-                            </h5>
-                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                              <div className="text-sm text-gray-600">
-                                {student.tr1.interview_date}
-                              </div>
-                            </div>
-                          </div>
-                        )}
+                        {/* TR1 Visualization */}
+                        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                          <h5 className="text-base font-bold text-gray-900 mb-4">DSA Interview</h5>
+                          <div className="space-y-4">
+                            {/* Problem Solving Rating */}
+                            {(() => {
+                              const p1Rating = student.tr1.problem_1?.problem_solving_rating
+                              const p2Rating = student.tr1.problem_2?.problem_solving_rating
+                              let avgRating = 0
+                              if (p1Rating !== undefined && p2Rating !== undefined) {
+                                avgRating = (parseFloat(String(p1Rating)) + parseFloat(String(p2Rating))) / 2
+                              } else if (p1Rating !== undefined) {
+                                avgRating = parseFloat(String(p1Rating))
+                              } else if (p2Rating !== undefined) {
+                                avgRating = parseFloat(String(p2Rating))
+                              }
+                              if (isNaN(avgRating)) avgRating = 0
+                              return (
+                                <div>
+                                  <div className="text-sm text-gray-900 mb-2"><b>Problem Solving</b></div>
+                                  <div className="flex items-center gap-4">
+                                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full bg-gray-900 rounded-full"
+                                        style={{ width: `${(avgRating / 5) * 100}%` }}
+                                      ></div>
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-900 min-w-[40px]">{avgRating.toFixed(1)}/5</span>
+                                  </div>
+                                </div>
+                              )
+                            })()}
 
-                        {/* Problems Grid */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                          {/* Problem 1 */}
-                          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                            <div className="bg-gray-50 border-b border-gray-200 px-5 py-3 flex justify-between items-center">
-                              <h5 className="flex items-center gap-2 text-sm font-bold text-gray-800">
-                                <Code2 className="w-4 h-4 text-blue-600" />
-                                Problem 1
-                              </h5>
+                            {/* Code Implementation Rating */}
+                            {(() => {
+                              const p1Rating = student.tr1.problem_1?.code_implementation_rating
+                              const p2Rating = student.tr1.problem_2?.code_implementation_rating
+                              let avgRating = 0
+                              if (p1Rating !== undefined && p2Rating !== undefined) {
+                                avgRating = (parseFloat(String(p1Rating)) + parseFloat(String(p2Rating))) / 2
+                              } else if (p1Rating !== undefined) {
+                                avgRating = parseFloat(String(p1Rating))
+                              } else if (p2Rating !== undefined) {
+                                avgRating = parseFloat(String(p2Rating))
+                              }
+                              if (isNaN(avgRating)) avgRating = 0
+                              return (
+                                <div>
+                                  <div className="text-sm text-gray-900 mb-2"><b>Code Quality</b></div>
+                                  <div className="flex items-center gap-4">
+                                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full bg-gray-900 rounded-full"
+                                        style={{ width: `${(avgRating / 5) * 100}%` }}
+                                      ></div>
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-900 min-w-[40px]">{avgRating.toFixed(1)}/5</span>
+                                  </div>
+                                </div>
+                              )
+                            })()}
+
+                            {/* DSA Theory */}
+                            <div>
+                              <div className="text-sm text-gray-900 mb-2"><b>DSA Theory</b></div>
                               {(() => {
-                                const codingProblem = (student.tr1?.coding_problem_asked as string) || ''
-                                let urls: string[] = []
-                                if (codingProblem) {
-                                  const commaSplit = codingProblem.split(',').map(s => s.trim())
-                                  if (commaSplit.length > 1) {
-                                    urls = commaSplit.filter(s => s.startsWith('http'))
-                                  } else {
-                                    const spaceSplit = codingProblem.split(/\s+/)
-                                    urls = spaceSplit.filter(s => s.startsWith('http'))
-                                  }
-                                  if (urls.length === 0 || urls.length < 2) {
-                                    const urlRegex = /https?:\/\/[^\s,]+/g
-                                    const regexMatches = codingProblem.match(urlRegex) || []
-                                    if (regexMatches.length > 0) urls = regexMatches
-                                  }
-                                }
-                                const p1Url = urls[0] || null
-
-                                return p1Url ? (
-                                  <button
-                                    onClick={() => window.open(p1Url, '_blank')}
-                                    className="flex items-center gap-1 text-[10px] font-bold bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition-colors uppercase tracking-wider"
-                                  >
-                                    View Code
-                                    <ExternalLink className="w-3 h-3" />
-                                  </button>
-                                ) : null
+                                const dsaValue = student.tr1.dsa_theory !== undefined ? parseFloat(String(student.tr1.dsa_theory)) : 0
+                                const displayValue = isNaN(dsaValue) ? 0 : dsaValue
+                                return (
+                                  <div className="flex items-center gap-4">
+                                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full bg-gray-900 rounded-full"
+                                        style={{ width: `${(displayValue / 5) * 100}%` }}
+                                      ></div>
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-900 min-w-[40px]">{displayValue}/5</span>
+                                  </div>
+                                )
                               })()}
                             </div>
-                            <div className="p-5 space-y-5">
-                              {student.tr1.problem_1?.problem_solving_rating !== undefined && (
-                                <div>
-                                  <div className="flex justify-between items-center mb-2">
-                                    <span className="text-xs font-semibold text-gray-500 uppercase">Problem Solving</span>
-                                    <span className="text-sm font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
-                                      {student.tr1.problem_1.problem_solving_rating} / 5
-                                    </span>
-                                  </div>
-                                  <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                                    <div
-                                      className="h-full bg-blue-500 rounded-full"
-                                      style={{ width: `${(parseFloat(String(student.tr1.problem_1.problem_solving_rating)) / 5) * 100}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              )}
-                              {student.tr1.problem_1?.problem_solving_remarks && (
-                                <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-600">
-                                  <span className="font-semibold text-gray-800 block mb-1">Remarks: </span>
-                                  {student.tr1.problem_1.problem_solving_remarks}
-                                </div>
-                              )}
-                              <div className="h-px bg-gray-100"></div>
-                              {student.tr1.problem_1?.code_implementation_rating !== undefined && (
-                                <div>
-                                  <div className="flex justify-between items-center mb-2">
-                                    <span className="text-xs font-semibold text-gray-500 uppercase">Code Implementation</span>
-                                    <span className="text-sm font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
-                                      {student.tr1.problem_1.code_implementation_rating} / 5
-                                    </span>
-                                  </div>
-                                  <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                                    <div
-                                      className="h-full bg-blue-500 rounded-full"
-                                      style={{ width: `${(parseFloat(String(student.tr1.problem_1.code_implementation_rating)) / 5) * 100}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              )}
-                              {student.tr1.problem_1?.code_implementation_remarks && (
-                                <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-600">
-                                  <span className="font-semibold text-gray-800 block mb-1">Remarks: </span>
-                                  {student.tr1.problem_1.code_implementation_remarks}
-                                </div>
-                              )}
-                            </div>
-                          </div>
 
-                          {/* Problem 2 */}
-                          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                            <div className="bg-gray-50 border-b border-gray-200 px-5 py-3 flex justify-between items-center">
-                              <h5 className="flex items-center gap-2 text-sm font-bold text-gray-800">
-                                <Puzzle className="w-4 h-4 text-purple-600" />
-                                Problem 2
-                              </h5>
+                            {/* CS Theory */}
+                            <div>
+                              <div className="text-sm text-gray-900 mb-2"><b>CS Fundamentals</b></div>
                               {(() => {
-                                const codingProblem = (student.tr1?.coding_problem_asked as string) || ''
-                                let urls: string[] = []
-                                if (codingProblem) {
-                                  const commaSplit = codingProblem.split(',').map(s => s.trim())
-                                  if (commaSplit.length > 1) {
-                                    urls = commaSplit.filter(s => s.startsWith('http'))
-                                  } else {
-                                    const spaceSplit = codingProblem.split(/\s+/)
-                                    urls = spaceSplit.filter(s => s.startsWith('http'))
-                                  }
-                                  if (urls.length === 0 || urls.length < 2) {
-                                    const urlRegex = /https?:\/\/[^\s,]+/g
-                                    const regexMatches = codingProblem.match(urlRegex) || []
-                                    if (regexMatches.length > 0) urls = regexMatches
-                                  }
-                                }
-                                const p2Url = urls[1] || null
-
-                                return p2Url ? (
-                                  <button
-                                    onClick={() => window.open(p2Url, '_blank')}
-                                    className="flex items-center gap-1 text-[10px] font-bold bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition-colors uppercase tracking-wider"
-                                  >
-                                    View Code
-                                    <ExternalLink className="w-3 h-3" />
-                                  </button>
-                                ) : null
+                                const csValue = student.tr1.core_cs_theory !== undefined ? parseFloat(String(student.tr1.core_cs_theory)) : 0
+                                const displayValue = isNaN(csValue) ? 0 : csValue
+                                return (
+                                  <div className="flex items-center gap-4">
+                                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full bg-gray-900 rounded-full"
+                                        style={{ width: `${(displayValue / 5) * 100}%` }}
+                                      ></div>
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-900 min-w-[40px]">{displayValue}/5</span>
+                                  </div>
+                                )
                               })()}
-                            </div>
-                            <div className="p-5 space-y-5">
-                              {student.tr1.problem_2?.problem_solving_rating !== undefined && (
-                                <div>
-                                  <div className="flex justify-between items-center mb-2">
-                                    <span className="text-xs font-semibold text-gray-500 uppercase">Problem Solving</span>
-                                    <span className="text-sm font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded">
-                                      {student.tr1.problem_2.problem_solving_rating} / 5
-                                    </span>
-                                  </div>
-                                  <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                                    <div
-                                      className="h-full bg-purple-500 rounded-full"
-                                      style={{ width: `${(parseFloat(String(student.tr1.problem_2.problem_solving_rating)) / 5) * 100}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              )}
-                              {student.tr1.problem_2?.problem_solving_remarks && (
-                                <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-600">
-                                  <span className="font-semibold text-gray-800 block mb-1">Remarks: </span>
-                                  {student.tr1.problem_2.problem_solving_remarks}
-                                </div>
-                              )}
-                              <div className="h-px bg-gray-100"></div>
-                              {student.tr1.problem_2?.code_implementation_rating !== undefined && (
-                                <div>
-                                  <div className="flex justify-between items-center mb-2">
-                                    <span className="text-xs font-semibold text-gray-500 uppercase">Code Implementation</span>
-                                    <span className="text-sm font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded">
-                                      {student.tr1.problem_2.code_implementation_rating} / 5
-                                    </span>
-                                  </div>
-                                  <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                                    <div
-                                      className="h-full bg-purple-500 rounded-full"
-                                      style={{ width: `${(parseFloat(String(student.tr1.problem_2.code_implementation_rating)) / 5) * 100}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              )}
-                              {student.tr1.problem_2?.code_implementation_remarks && (
-                                <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-600">
-                                  <span className="font-semibold text-gray-800 block mb-1">Remarks: </span>
-                                  {student.tr1.problem_2.code_implementation_remarks}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Theory Grid */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                          {/* DSA Theory */}
-                          <div className="bg-gradient-to-br from-indigo-50 to-white border border-indigo-100 rounded-xl p-6 hover:shadow-md transition-shadow">
-                            <div className="flex justify-between items-start mb-4">
-                              <div className="p-2 bg-indigo-100 rounded-lg">
-                                <GitBranch className="w-5 h-5 text-indigo-600" />
-                              </div>
-                              <span className="text-xs font-bold px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full">
-                                {((parseFloat(String(student.tr1.dsa_theory)) / 5) * 100).toFixed(0)}%
-                              </span>
-                            </div>
-                            <h5 className="text-sm font-bold text-gray-900 mb-1">DSA Theory</h5>
-                            <div className="space-y-4">
-                              {student.tr1.dsa_theory !== undefined && (
-                                <div>
-                                  <div className="flex items-baseline gap-1 mb-3">
-                                    <span className="text-2xl font-bold text-gray-900">{student.tr1.dsa_theory}</span>
-                                    <span className="text-sm text-gray-500">/ 5</span>
-                                  </div>
-                                  <div className="w-full h-2 bg-indigo-100 rounded-full overflow-hidden">
-                                    <div
-                                      className="h-full bg-indigo-500 rounded-full"
-                                      style={{ width: `${(parseFloat(String(student.tr1.dsa_theory)) / 5) * 100}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              )}
-                              {student.tr1.remarks_on_dsa_theory && (
-                                <div className="bg-white/60 rounded-lg p-3 text-sm text-gray-600 border border-indigo-50">
-                                  <span className="font-semibold text-gray-800 block mb-1">Remarks: </span>
-                                  {student.tr1.remarks_on_dsa_theory}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Core CS Theory */}
-                          <div className="bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 rounded-xl p-6 hover:shadow-md transition-shadow">
-                            <div className="flex justify-between items-start mb-4">
-                              <div className="p-2 bg-emerald-100 rounded-lg">
-                                <Library className="w-5 h-5 text-emerald-600" />
-                              </div>
-                              <span className="text-xs font-bold px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full">
-                                {((parseFloat(String(student.tr1.core_cs_theory)) / 5) * 100).toFixed(0)}%
-                              </span>
-                            </div>
-                            <h5 className="text-sm font-bold text-gray-900 mb-1">Core CS Theory</h5>
-                            <div className="space-y-4">
-                              {student.tr1.core_cs_theory !== undefined && (
-                                <div>
-                                  <div className="flex items-baseline gap-1 mb-3">
-                                    <span className="text-2xl font-bold text-gray-900">{student.tr1.core_cs_theory}</span>
-                                    <span className="text-sm text-gray-500">/ 5</span>
-                                  </div>
-                                  <div className="w-full h-2 bg-emerald-100 rounded-full overflow-hidden">
-                                    <div
-                                      className="h-full bg-emerald-500 rounded-full"
-                                      style={{ width: `${(parseFloat(String(student.tr1.core_cs_theory)) / 5) * 100}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              )}
-                              {student.tr1.remarks_on_core_cs_theory && (
-                                <div className="bg-white/60 rounded-lg p-3 text-sm text-gray-600 border border-emerald-50">
-                                  <span className="font-semibold text-gray-800 block mb-1">Remarks: </span>
-                                  {student.tr1.remarks_on_core_cs_theory}
-                                </div>
-                              )}
                             </div>
                           </div>
                         </div>
 
                         {/* Overall Comments */}
-                        {student.tr1.overall_comments && (
+                        {(verdict?.tr1_remarks || student.tr1.overall_comments) && (
                           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                             <div className="bg-gray-50 border-b border-gray-200 px-5 py-3 flex items-center gap-2">
                               <ClipboardListIcon className="w-4 h-4 text-blue-600" />
@@ -945,54 +954,9 @@ export default function StudentProfile() {
                             </div>
                             <div className="p-5">
                               <div className="bg-blue-50/50 rounded-xl p-4 text-sm text-gray-700 leading-relaxed border border-blue-100/50">
-                                {student.tr1.overall_comments}
+                                {verdict?.tr1_remarks || student.tr1.overall_comments}
                               </div>
                             </div>
-                          </div>
-                        )}
-
-                        {/* Total Score */}
-                        {student.tr1.total_score !== undefined && (
-                          <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl shadow-lg p-6 text-white">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h5 className="flex items-center gap-2 text-sm font-medium text-blue-100 mb-1">
-                                  <TargetIcon className="w-5 h-5" />Total TR1 Score
-                                </h5>
-                                <div className="text-3xl font-bold">
-                                  {student.tr1.total_score} <span className="text-xl text-blue-200">/ 100</span>
-                                </div>
-                              </div>
-                              <div className="w-32 h-32 relative hidden md:block">
-                                {/* Placeholder for a circular chart or graphic if needed, reusing simple progress for now */}
-                                <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
-                                  <path
-                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                                    fill="none"
-                                    stroke="rgba(255, 255, 255, 0.2)"
-                                    strokeWidth="3"
-                                  />
-                                  <path
-                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                                    fill="none"
-                                    stroke="white"
-                                    strokeWidth="3"
-                                    strokeDasharray={`${Math.min(100, parseFloat(String(student.tr1.total_score)))}, 100`}
-                                  />
-                                </svg>
-                                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-sm font-bold">
-                                  {student.tr1.total_score}%
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* DSA CD Team Remarks */}
-                        {student.tr1.dsa_cd_team_remarks && (
-                          <div className="bg-gray-50 border border-gray-200 rounded-xl p-6">
-                            <h5 className="text-sm font-bold text-gray-900 mb-2">DSA CD Team Remarks</h5>
-                            <p className="text-sm text-gray-700">{student.tr1.dsa_cd_team_remarks}</p>
                           </div>
                         )}
                       </div>
@@ -1001,308 +965,129 @@ export default function StudentProfile() {
                     {/* TR2 Tab */}
                     {detailedScoresTab === 'tr2' && student.tr2 && Object.keys(student.tr2).length > 0 && (
                       <div className="space-y-4">
-                        {/* Interview Date */}
-                        {student.tr2.interview_date && (
-                          <div>
-                            <h5 className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-3">
-                              <Calendar className="w-5 h-5 text-gray-600" />Interview Date</h5>
-                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                              <div className="text-sm text-gray-600">
-                                {student.tr2.interview_date}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Soft Skills & Project Row */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                          {/* Soft Skills */}
-                          <div className="bg-gradient-to-br from-pink-50 to-white border border-pink-100 rounded-xl p-6 hover:shadow-md transition-shadow">
-                            <div className="flex justify-between items-start mb-4">
-                              <div className="p-2 bg-pink-100 rounded-lg">
-                                <HeartHandshake className="w-5 h-5 text-pink-600" />
-                              </div>
-                              {student.tr2.soft_skills?.communication !== undefined && (
-                                <span className="text-xs font-bold px-2 py-1 bg-pink-100 text-pink-700 rounded-full">
-                                  {Math.min(100, parseFloat(String(student.tr2.soft_skills.communication)))}%
-                                </span>
-                              )}
-                            </div>
-                            <h5 className="text-sm font-bold text-gray-900 mb-4">Soft Skills</h5>
-                            <div className="space-y-4">
-                              {student.tr2.soft_skills?.communication !== undefined && (
-                                <div>
-                                  <div className="flex justify-between items-center mb-2">
-                                    <span className="text-xs font-semibold text-gray-500 uppercase">Communication</span>
-                                    <span className="text-sm font-bold text-pink-600">{student.tr2.soft_skills.communication}</span>
-                                  </div>
-                                  <div className="w-full h-2 bg-pink-100 rounded-full overflow-hidden">
-                                    <div
-                                      className="h-full bg-pink-500 rounded-full"
-                                      style={{ width: `${Math.min(100, parseFloat(String(student.tr2.soft_skills.communication)))}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              )}
-                              {student.tr2.soft_skills?.presentability && (
-                                <div className="bg-white/60 rounded-lg p-3 text-sm text-gray-600 border border-pink-50">
-                                  <span className="font-semibold text-gray-800 block mb-1">Presentability: </span>
-                                  {student.tr2.soft_skills.presentability}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Project */}
-                          <div className="bg-gradient-to-br from-orange-50 to-white border border-orange-100 rounded-xl p-6 hover:shadow-md transition-shadow">
-                            <div className="flex justify-between items-start mb-4">
-                              <div className="p-2 bg-orange-100 rounded-lg">
-                                <FolderKanban className="w-5 h-5 text-orange-600" />
-                              </div>
-                              {student.tr2.projects?.project_rating !== undefined && (
-                                <span className="text-xs font-bold px-2 py-1 bg-orange-100 text-orange-700 rounded-full">
-                                  {Math.min(100, parseFloat(String(student.tr2.projects.project_rating)))}%
-                                </span>
-                              )}
-                            </div>
-                            <h5 className="text-sm font-bold text-gray-900 mb-4">Project Evaluation</h5>
-                            <div className="space-y-4">
-                              {student.tr2.projects?.project_rating !== undefined && (
-                                <div>
-                                  <div className="flex justify-between items-center mb-2">
-                                    <span className="text-xs font-semibold text-gray-500 uppercase">Rating</span>
-                                    <span className="text-sm font-bold text-orange-600">{student.tr2.projects.project_rating}</span>
-                                  </div>
-                                  <div className="w-full h-2 bg-orange-100 rounded-full overflow-hidden">
-                                    <div
-                                      className="h-full bg-orange-500 rounded-full"
-                                      style={{ width: `${Math.min(100, parseFloat(String(student.tr2.projects.project_rating)))}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              )}
-                              <div className="grid grid-cols-1 gap-3">
-                                {student.tr2.projects?.projects_type && (
-                                  <div className="text-xs font-medium text-gray-500 flex items-center gap-2">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span>
-                                    <span>Type: <span className="text-gray-900 font-semibold">{student.tr2.projects.projects_type}</span></span>
-                                  </div>
-                                )}
-                                {student.tr2.projects?.projects_explanation && (
-                                  <div className="bg-white/60 rounded-lg p-3 text-sm text-gray-600 border border-orange-50">
-                                    <span className="font-semibold text-gray-800 block mb-1">Explanation: </span>
-                                    {student.tr2.projects.projects_explanation}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Technical Scores Row */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                          {/* Frontend */}
-                          <div className="bg-gradient-to-br from-cyan-50 to-white border border-cyan-100 rounded-xl p-6 hover:shadow-md transition-shadow">
-                            <div className="flex justify-between items-start mb-4">
-                              <div className="p-2 bg-cyan-100 rounded-lg">
-                                <Layout className="w-5 h-5 text-cyan-600" />
-                              </div>
-                              {student.tr2.frontend?.frontend_score !== undefined && (
-                                <span className="text-xs font-bold px-2 py-1 bg-cyan-100 text-cyan-700 rounded-full">
-                                  {Math.min(100, parseFloat(String(student.tr2.frontend.frontend_score)))}%
-                                </span>
-                              )}
-                            </div>
-                            <h5 className="text-sm font-bold text-gray-900 mb-4">Frontend Development</h5>
-                            <div className="space-y-4">
-                              {student.tr2.frontend?.frontend_score !== undefined && (
-                                <div className="mb-4">
-                                  <div className="w-full h-2 bg-cyan-100 rounded-full overflow-hidden">
-                                    <div
-                                      className="h-full bg-cyan-500 rounded-full"
-                                      style={{ width: `${Math.min(100, parseFloat(String(student.tr2.frontend.frontend_score)))}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              )}
-                              <div className="space-y-4">
-                                {student.tr2.frontend?.html_css_js_theory && (
-                                  <div className="bg-white/60 p-3 rounded-lg text-sm border border-cyan-50 shadow-sm">
-                                    <div className="font-bold text-cyan-800 text-[10px] uppercase mb-1 tracking-wider">HTML/CSS/JS Logic</div>
-                                    <div className="text-gray-700 leading-relaxed italic">&ldquo;{student.tr2.frontend.html_css_js_theory}&rdquo;</div>
-                                  </div>
-                                )}
-                                {student.tr2.frontend?.react_architecture && (
-                                  <div className="bg-white/60 p-3 rounded-lg text-sm border border-cyan-50 shadow-sm">
-                                    <div className="font-bold text-cyan-800 text-[10px] uppercase mb-1 tracking-wider">React Architecture</div>
-                                    <div className="text-gray-700 leading-relaxed italic">&ldquo;{student.tr2.frontend.react_architecture}&rdquo;</div>
-                                  </div>
-                                )}
-                                {student.tr2.frontend?.react_coding && (
-                                  <div className="bg-slate-900 p-4 rounded-xl text-[11px] font-mono text-cyan-400 overflow-x-auto border border-slate-800 shadow-lg">
-                                    <div className="text-slate-500 text-[10px] uppercase font-bold mb-2 border-b border-slate-800 pb-1">Snippet Verification</div>
-                                    <div className="whitespace-pre-wrap">{student.tr2.frontend.react_coding}</div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Backend */}
-                          <div className="bg-gradient-to-br from-violet-50 to-white border border-violet-100 rounded-xl p-6 hover:shadow-md transition-shadow">
-                            <div className="flex justify-between items-start mb-4">
-                              <div className="p-2 bg-violet-100 rounded-lg">
-                                <ServerCog className="w-5 h-5 text-violet-600" />
-                              </div>
-                              {student.tr2.backend?.backend_score !== undefined && (
-                                <span className="text-xs font-bold px-2 py-1 bg-violet-100 text-violet-700 rounded-full">
-                                  {Math.min(100, parseFloat(String(student.tr2.backend.backend_score)))}%
-                                </span>
-                              )}
-                            </div>
-                            <h5 className="text-sm font-bold text-gray-900 mb-4">Backend Development</h5>
-                            <div className="space-y-4">
-                              {student.tr2.backend?.backend_score !== undefined && (
-                                <div className="mb-4">
-                                  <div className="w-full h-2 bg-violet-100 rounded-full overflow-hidden">
-                                    <div
-                                      className="h-full bg-violet-500 rounded-full"
-                                      style={{ width: `${Math.min(100, parseFloat(String(student.tr2.backend.backend_score)))}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              )}
-                              <div className="grid grid-cols-1 gap-2">
-                                {student.tr2.backend?.node_express_theory && (
-                                  <div className="bg-white/60 p-3 rounded-lg text-sm border border-violet-50">
-                                    <div className="font-bold text-violet-800 text-[10px] uppercase mb-1">Node/Express</div>
-                                    <div className="text-gray-600 italic leading-relaxed">{student.tr2.backend.node_express_theory}</div>
-                                  </div>
-                                )}
-                                {student.tr2.backend?.mongodb_theory && (
-                                  <div className="bg-white/60 p-3 rounded-lg text-sm border border-violet-50">
-                                    <div className="font-bold text-violet-800 text-[10px] uppercase mb-1">MongoDB</div>
-                                    <div className="text-gray-600 italic leading-relaxed">{student.tr2.backend.mongodb_theory}</div>
-                                  </div>
-                                )}
-                                {student.tr2.backend?.backend_endpoint && (
-                                  <div className="bg-slate-900 p-4 rounded-xl text-[11px] font-mono text-violet-300 overflow-x-auto border border-slate-800 shadow-lg mt-2">
-                                    <div className="text-slate-500 text-[10px] uppercase font-bold mb-2 border-b border-slate-800 pb-1">API Lifecycle Logic</div>
-                                    <div className="whitespace-pre-wrap">{student.tr2.backend.backend_endpoint}</div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Internship */}
-                        <div className="bg-gradient-to-br from-yellow-50 to-white border border-yellow-100 rounded-xl p-6 hover:shadow-md transition-shadow">
-                          <div className="flex justify-between items-start mb-4">
-                            <div className="p-2 bg-yellow-100 rounded-lg">
-                              <LucideGraduationCap className="w-5 h-5 text-yellow-600" />
-                            </div>
-                            {student.tr2.experience?.internship_score !== undefined && (
-                              <span className="text-xs font-bold px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full">
-                                {Math.min(100, parseFloat(String(student.tr2.experience.internship_score)))}%
-                              </span>
-                            )}
-                          </div>
-                          <h5 className="text-sm font-bold text-gray-900 mb-4">Internship & Experience</h5>
+                        {/* TR2 Visualization */}
+                        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                          <h5 className="text-base font-bold text-gray-900 mb-4">TR2 Interview</h5>
                           <div className="space-y-4">
-                            {student.tr2.experience?.internship_score !== undefined && (
-                              <div className="mb-4">
-                                <div className="w-full h-2 bg-yellow-100 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full bg-yellow-500 rounded-full"
-                                    style={{ width: `${Math.min(100, parseFloat(String(student.tr2.experience.internship_score)))}%` }}
-                                  ></div>
-                                </div>
-                              </div>
-                            )}
+                            {/* Communication */}
+                            <div>
+                              <div className="text-sm text-gray-900 mb-2"><b>Coomunication Project Rating</b></div>
+                              {(() => {
+                                const projectValue = student.tr2.projects?.communication_project_rating !== undefined ? parseFloat(String(student.tr2.projects.communication_project_rating)) : 0
+                                const displayValue = isNaN(projectValue) ? 0 : Math.min(100, projectValue)
+                                return (
+                                  <div className="flex items-center gap-4">
+                                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full bg-gray-900 rounded-full"
+                                        style={{ width: `${displayValue}%` }}
+                                      ></div>
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-900 min-w-[50px]">{Math.round(displayValue)}/100</span>
+                                  </div>
+                                )
+                              })()}
+                            </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                              {student.tr2.experience?.cs_fundamentals && (
-                                <div className="bg-white/60 p-3 rounded-lg text-sm border border-yellow-50">
-                                  <span className="font-bold text-yellow-800 text-[10px] uppercase block mb-1">CS Fundamentals</span>
-                                  <p className="text-gray-600 text-xs italic">{student.tr2.experience.cs_fundamentals}</p>
-                                </div>
-                              )}
-                              {student.tr2.experience?.scenario_based_questions && (
-                                <div className="bg-white/60 p-3 rounded-lg text-sm border border-yellow-50">
-                                  <span className="font-bold text-yellow-800 text-[10px] uppercase block mb-1">Scenarios</span>
-                                  <p className="text-gray-600 text-xs italic">{student.tr2.experience.scenario_based_questions}</p>
-                                </div>
-                              )}
-                              {student.tr2.experience?.internships_experience && (
-                                <div className="bg-white/60 p-3 rounded-lg text-sm border border-yellow-50 col-span-full">
-                                  <span className="font-bold text-yellow-800 text-[10px] uppercase block mb-1">Internship Context</span>
-                                  <p className="text-gray-600 text-xs italic">{student.tr2.experience.internships_experience}</p>
-                                </div>
-                              )}
-                              {student.tr2.experience?.internship_explanation && (
-                                <div className="bg-white/60 p-3 rounded-lg text-sm border border-yellow-50 col-span-full">
-                                  <span className="font-bold text-yellow-800 text-[10px] uppercase block mb-1">Key Contributions</span>
-                                  <p className="text-gray-600 text-xs italic">{student.tr2.experience.internship_explanation}</p>
-                                </div>
-                              )}
+                            {/* Project Rating */}
+                            <div>
+                              <div className="text-sm text-gray-900 mb-2"><b>Project Rating</b></div>
+                              {(() => {
+                                const projectValue = student.tr2.projects?.project_rating !== undefined ? parseFloat(String(student.tr2.projects.project_rating)) : 0
+                                const displayValue = isNaN(projectValue) ? 0 : Math.min(100, projectValue)
+                                return (
+                                  <div className="flex items-center gap-4">
+                                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full bg-gray-900 rounded-full"
+                                        style={{ width: `${displayValue}%` }}
+                                      ></div>
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-900 min-w-[50px]">{Math.round(displayValue)}/100</span>
+                                  </div>
+                                )
+                              })()}
+                            </div>
+
+                            {/* Frontend Score */}
+                            <div>
+                              <div className="text-sm text-gray-900 mb-2"><b>Frontend Score</b></div>
+                              {(() => {
+                                const frontendValue = student.tr2.frontend?.frontend_score !== undefined ? parseFloat(String(student.tr2.frontend.frontend_score)) : 0
+                                const displayValue = isNaN(frontendValue) ? 0 : Math.min(100, frontendValue)
+                                return (
+                                  <div className="flex items-center gap-4">
+                                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full bg-gray-900 rounded-full"
+                                        style={{ width: `${displayValue}%` }}
+                                      ></div>
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-900 min-w-[50px]">{Math.round(displayValue)}/100</span>
+                                  </div>
+                                )
+                              })()}
+                            </div>
+
+                            {/* Backend Score */}
+                            <div>
+                              <div className="text-sm text-gray-900 mb-2"><b>Backend Score</b></div>
+                              {(() => {
+                                const backendValue = student.tr2.backend?.backend_score !== undefined ? parseFloat(String(student.tr2.backend.backend_score)) : 0
+                                const displayValue = isNaN(backendValue) ? 0 : Math.min(100, backendValue)
+                                return (
+                                  <div className="flex items-center gap-4">
+                                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full bg-gray-900 rounded-full"
+                                        style={{ width: `${displayValue}%` }}
+                                      ></div>
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-900 min-w-[50px]">{Math.round(displayValue)}/100</span>
+                                  </div>
+                                )
+                              })()}
+                            </div>
+
+                            {/* Internship Score */}
+                            <div>
+                              <div className="text-sm text-gray-900 mb-2"><b>Internship Score</b></div>
+                              {(() => {
+                                const internshipValue = student.tr2.experience?.internship_score !== undefined ? parseFloat(String(student.tr2.experience.internship_score)) : 0
+                                const displayValue = isNaN(internshipValue) ? 0 : Math.min(100, internshipValue)
+                                return (
+                                  <div className="flex items-center gap-4">
+                                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full bg-gray-900 rounded-full"
+                                        style={{ width: `${displayValue}%` }}
+                                      ></div>
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-900 min-w-[50px]">{Math.round(displayValue)}/100</span>
+                                  </div>
+                                )
+                              })()}
                             </div>
                           </div>
                         </div>
 
-                        {/* AI Knowledge */}
-                        {student.tr2.ai_knowledge && (
+                        {/* Overall Comments */}
+                        {(verdict?.tr2_overall_remarks || student.tr2.overall_comments) && (
                           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                            <div className="bg-purple-50 border-b border-purple-100 px-5 py-3 flex items-center gap-2">
-                              <Sparkles className="w-4 h-4 text-purple-600" />
-                              <h5 className="text-sm font-bold text-purple-900">AI Knowledge & Adaptation</h5>
+                            <div className="bg-gray-50 border-b border-gray-200 px-5 py-3 flex items-center gap-2">
+                              <ClipboardListIcon className="w-4 h-4 text-blue-600" />
+                              <h5 className="text-sm font-bold text-gray-800">Overall Comments</h5>
                             </div>
                             <div className="p-5">
-                              <div className="bg-purple-50/30 rounded-xl p-4 text-sm text-gray-700 leading-relaxed border border-purple-100/50 italic">
-                                &ldquo;{student.tr2.ai_knowledge}&rdquo;
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Overall Score */}
-                        {student.tr2.overall_score !== undefined && (
-                          <div className="bg-gradient-to-r from-violet-600 to-fuchsia-700 rounded-xl shadow-lg p-6 text-white">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h5 className="flex items-center gap-2 text-sm font-medium text-violet-100 mb-1">
-                                  <Target className="w-5 h-5" />TR2 Overall Score
-                                </h5>
-                                <div className="text-3xl font-bold">
-                                  {student.tr2.overall_score} <span className="text-xl text-violet-200">/ 100</span>
-                                </div>
-                              </div>
-                              <div className="w-32 h-32 relative hidden md:block">
-                                <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
-                                  <path
-                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                                    fill="none"
-                                    stroke="rgba(255, 255, 255, 0.2)"
-                                    strokeWidth="3"
-                                  />
-                                  <path
-                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                                    fill="none"
-                                    stroke="white"
-                                    strokeWidth="3"
-                                    strokeDasharray={`${Math.min(100, parseFloat(String(student.tr2.overall_score)))}, 100`}
-                                  />
-                                </svg>
-                                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-sm font-bold">
-                                  {student.tr2.overall_score}%
-                                </div>
+                              <div className="bg-blue-50/50 rounded-xl p-4 text-sm text-gray-700 leading-relaxed border border-blue-100/50">
+                                {verdict?.tr2_overall_remarks || student.tr2.overall_comments}
                               </div>
                             </div>
                           </div>
                         )}
 
                         {/* Overall Remarks */}
-                        {student.tr2.overall_remarks && (
+                        {/* {student.tr2.overall_remarks && (
                           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
                             <h5 className="flex items-center gap-2 text-sm font-bold text-gray-900 mb-3">
                               <ClipboardList className="w-4 h-4 text-violet-600" />Overall Remarks
@@ -1311,7 +1096,7 @@ export default function StudentProfile() {
                               {student.tr2.overall_remarks}
                             </div>
                           </div>
-                        )}
+                        )} */}
                       </div>
                     )}
 
@@ -1319,12 +1104,12 @@ export default function StudentProfile() {
                     {detailedScoresTab === 'remarks' && verdict && (
                       <div className="space-y-4">
                         {/* Technical Strengths */}
-                        {verdict.strengths && verdict.strengths.length > 0 && (
+                        {(verdict.technical_strengths && verdict.technical_strengths.length > 0) || (verdict.strengths && verdict.strengths.length > 0) ? (
                           <div className="bg-green-50/80 border border-green-200 rounded-xl p-6 shadow-sm">
                             <h4 className="flex items-center gap-2 text-sm font-bold text-green-800 mb-4 uppercase tracking-wide">
                               <Shield className="w-4 h-4" />Technical Strengths</h4>
                             <ul className="grid grid-cols-1 gap-3 pl-1">
-                              {verdict.strengths.map((strength, idx) => (
+                              {(verdict.technical_strengths || verdict.strengths || []).map((strength, idx) => (
                                 <li key={idx} className="text-sm text-gray-800 flex items-start gap-2.5">
                                   <div className="min-w-[4px] h-[4px] rounded-full bg-green-500 mt-2"></div>
                                   <span>{strength}</span>
@@ -1332,15 +1117,15 @@ export default function StudentProfile() {
                               ))}
                             </ul>
                           </div>
-                        )}
+                        ) : null}
 
                         {/* Development Areas */}
-                        {verdict.improvements && verdict.improvements.length > 0 && (
+                        {(verdict.development_areas && verdict.development_areas.length > 0) || (verdict.improvements && verdict.improvements.length > 0) ? (
                           <div className="bg-orange-50/80 border border-orange-200 rounded-xl p-6 shadow-sm">
                             <h4 className="flex items-center gap-2 text-sm font-bold text-orange-800 mb-4 uppercase tracking-wide">
                               <Wrench className="w-4 h-4" />Development Areas</h4>
                             <ul className="grid grid-cols-1 gap-3 pl-1">
-                              {verdict.improvements.map((improvement, idx) => (
+                              {(verdict.development_areas || verdict.improvements || []).map((improvement, idx) => (
                                 <li key={idx} className="text-sm text-gray-800 flex items-start gap-2.5">
                                   <div className="min-w-[4px] h-[4px] rounded-full bg-orange-500 mt-2"></div>
                                   <span>{improvement}</span>
@@ -1348,7 +1133,7 @@ export default function StudentProfile() {
                               ))}
                             </ul>
                           </div>
-                        )}
+                        ) : null}
 
                         {/* Recommended Role Fit */}
                         {verdict.recommended_role_fit && (

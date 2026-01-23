@@ -137,47 +137,290 @@ export async function generateVerdictForStudent(student_uid: string): Promise<{
       }
     }
 
+    // Extract assessment scores
+    const assessmentScores = assessmentData.scores || {}
+
     // Build prompt
-    const prompt = `
-You are a senior technical interviewer.
+    const prompt = `**You are a senior technical interviewer and hiring advisor.
 
-Based on the following assessment data, TR1 interview, and TR2 interview,
-generate a final candidate evaluation.
+Your task is to generate a structured, professional evaluation for a candidate based on the data provided.
 
-Be objective and professional. Avoid vague language.
+Maintain a positive, constructive, and industry-appropriate tone throughout.
 
-You MUST respond ONLY with a valid JSON object in the following exact format:
-{
-  "summary": "string, 3-4 sentences overall summary",
-  "strengths": ["bullet point 1", "bullet point 2", "..."],
-  "improvements": ["bullet point 1", "bullet point 2", "..."],
-  "recommendation": "Strong Hire" | "Hire" | "Weak Hire",
-  "justification": "short paragraph justifying the recommendation",
-  "recommended_role_fit": "string, one concise paragraph (3-4 lines) evaluating role fit for early-career/entry-level positions. Guidelines: Focus on positive alignment only. Do NOT mention weaknesses explicitly. Frame growth areas as learning opportunities. Be realistic and professional (not overly flattering). Align role fit with technical depth, implementation skills, problem-solving ability, and learning potential. Use professional hiring language. Mention suitable role title(s), type of team or company environment, and level of mentorship or exposure recommended. Avoid bullet points. Do NOT include scores or numbers. Do NOT repeat the final hiring recommendation. Tone should be constructive, encouraging, balanced, and industry-standard (HR/Engineering leadership friendly)."
-}
+Do not mention raw scores explicitly unless required for context.
 
-Rules:
-- Choose exactly ONE recommendation from: Strong Hire, Hire, Weak Hire.
-- For recommended_role_fit: Write ONE concise paragraph (3-4 lines only). Analyze the candidate's performance across assessment, TR1 (DSA/problem-solving), and TR2 (frontend/backend/projects) to determine their best role fit for entry-level positions.
-- Focus ONLY on positive alignment - what roles they ARE suited for, not what they're not suited for.
-- Consider their strengths in coding, DSA, CS fundamentals, frontend skills, backend skills, and project experience.
-- Mention: specific role title(s) (e.g., 'Software Development Engineer - Entry Level', 'Frontend Developer', 'Backend Developer', 'Full Stack Developer'), type of team/company environment (e.g., product companies, startups, teams with good engineering culture), and level of mentorship/exposure recommended.
-- Do NOT mention weaknesses, gaps, or areas of concern explicitly.
-- Do NOT include any scores, numbers, or percentages.
-- Do NOT repeat the final hiring recommendation (Strong Hire/Hire/Weak Hire).
-- Use professional, constructive, encouraging, balanced tone suitable for HR and Engineering leadership.
-- Do not include any additional fields.
-- Do not include any introductory or closing text outside the JSON.
+Do not include any negative or harsh language.
 
-Assessment:
-${JSON.stringify(assessmentData, null, 2)}
+Frame all gaps as growth opportunities.**
 
-TR1:
+---
+
+## INPUT DATA
+
+### 1. Assessment Scores
+
+**Important:** In the assessment scores data:
+- **student_score** fields represent the score achieved by the student
+- **section_score** fields represent the total marks that can be obtained in that section
+
+\`\`\`json
+${JSON.stringify(assessmentScores, null, 2)}
+\`\`\`
+
+### 2. TR1 Interview Data
+
+\`\`\`json
 ${JSON.stringify(tr1Data, null, 2)}
+\`\`\`
 
-TR2:
+### 3. TR2 Interview Data
+
+\`\`\`json
 ${JSON.stringify(tr2Data, null, 2)}
-`.trim()
+\`\`\`
+
+---
+
+## DECISION-MAKING INSTRUCTIONS
+
+**Make your evaluation and recommendation decisions based on:**
+- Assessment scores (student performance relative to section totals)
+- TR1 interview scores and ratings (problem-solving, coding implementation, communication, DSA theory, CS fundamentals)
+- TR2 interview scores and ratings (frontend, backend, projects, experience, soft skills)
+
+**Use the scores and ratings from TR1 and TR2 to:**
+- Determine the candidate's technical strengths and areas for growth
+- Assess their fit for different role types
+- Make informed recommendations about role suitability
+
+---
+
+## OUTPUT REQUIREMENTS (STRICT)
+
+Generate the output in **valid JSON format** exactly matching the structure below.
+
+Do NOT add extra fields.
+
+Do NOT add explanations outside JSON.
+
+---
+
+## SECTION-WISE INSTRUCTIONS
+
+### A. Assessment Remarks
+
+* Generate **1–3 lines**
+
+* Base remarks on relative performance across sections
+
+* Highlight strengths such as problem solving, consistency, or aptitude
+
+* Keep tone encouraging and concise
+
+---
+
+### B. TR1 Interview Remarks
+
+* Generate **1–3 lines**
+
+* Emphasize:
+
+  * problem-solving approach
+
+  * communication
+
+  * coding implementation
+
+* Reference interview observations indirectly
+
+* Keep tone professional and balanced
+
+---
+
+### C. TR2 Overall Remarks
+
+* Generate **1–3 lines**
+
+* Focus on:
+
+  * practical exposure
+
+  * technical understanding
+
+  * system thinking
+
+* Avoid listing weaknesses directly
+
+---
+
+### D. Technical Strengths (TR2-Driven)
+
+* Generate **3–5 bullet points**
+
+* Each point must be:
+
+  * concise
+
+  * skill-oriented
+
+  * positively framed
+
+* Examples (do NOT copy):
+
+  * Backend reasoning
+
+  * System understanding
+
+  * Practical problem solving
+
+---
+
+### E. Development Areas (Positive Framing) (TR2- Driven)
+
+* Generate **3–5 bullet points**
+
+* Phrase each as a **growth opportunity**
+
+* No negative wording
+
+* No comparison to peers
+
+---
+
+### F. Recommended Role Fit (TR2- Driven)
+
+* Output **paragraph concise skill oriented**
+
+* **MUST explicitly mention 2–4 specific role titles** within the paragraph
+
+* Roles must align with:
+
+  * entry-level / early-career profiles
+
+  * implementation-heavy responsibilities
+
+* The paragraph should discuss role fit while clearly stating the recommended role titles
+
+* Example format (roles should be mentioned in the paragraph):
+
+\`\`\`text
+The candidate demonstrates strong alignment with roles such as Software Development Engineer (Entry Level) and Backend Engineer – Junior, given their...
+\`\`\`
+
+---
+
+### G. Why This Candidate (Positive Justification)
+
+* Generate **2–3 bullet points**
+
+* Explain **why the candidate fits the recommended roles**
+
+* Focus on:
+
+  * learning ability
+
+  * implementation skills
+
+  * adaptability
+
+* No repetition of strengths section
+
+---
+
+### H. Overall Summary (All Sections Combined)
+
+* Generate **3–4 lines**
+
+* Summarize performance across:
+
+  * Assessment
+
+  * TR1
+
+  * TR2
+
+* Keep executive-readable tone
+
+* No scores, no numbers
+
+### I.  Role Fit 
+
+* Output **ONLY role titles**
+
+* No sentences, no explanations
+
+* Provide **2–4 roles**
+
+* Roles must align with:
+
+  * entry-level / early-career profiles
+
+  * implementation-heavy responsibilities
+
+* Example format:
+
+\`\`\`text
+Software Development Engineer (Entry Level)
+Backend Engineer – Junior
+\`\`\`
+
+---
+
+## FINAL OUTPUT FORMAT (MANDATORY)
+
+\`\`\`json
+{
+  "assessment_remarks": "string",
+  "tr1_remarks": "string",
+  "tr2_overall_remarks": "string",
+  "technical_strengths": [
+    "string",
+    "string",
+    "string"
+  ],
+  "development_areas": [
+    "string",
+    "string",
+    "string"
+  ],
+  "recommended_role_fit": "string",
+  "why_this_candidate": [
+    "string",
+    "string"
+  ],
+  "role_fit": [
+    "string",
+    "string"
+  ],
+  "overall_summary": "string",
+  "recommendation": "Strong Hire" | "Hire" | "Weak Hire"
+}
+\`\`\`
+
+---
+
+## IMPORTANT RULES (DO NOT VIOLATE)
+
+* ❌ No negative wording
+* ❌ No rejection language
+* ❌ No emojis
+* ❌ No markdown
+* ❌ No extra keys
+* ❌ No repetition across sections
+* ✅ Professional hiring language only
+* ✅ Suitable for internal hiring dashboards
+
+---
+
+## MODEL BEHAVIOR CONSTRAINT
+
+If information is limited:
+
+* Make reasonable inferences
+* Prefer conservative, positive interpretations
+* Avoid hallucinated facts
+
+---`
 
     // Record request before making it
     recordRequest()
@@ -214,33 +457,60 @@ ${JSON.stringify(tr2Data, null, 2)}
         .filter(Boolean)
     }
 
-    const summary: string = String(parsed.summary || '')
-    const strengths: string[] = normalizeStringArray(parsed.strengths)
-    const improvements: string[] = normalizeStringArray(parsed.improvements)
+    // Parse new fields
+    const assessment_remarks: string = String(parsed.assessment_remarks || '')
+    const tr1_remarks: string = String(parsed.tr1_remarks || '')
+    const tr2_overall_remarks: string = String(parsed.tr2_overall_remarks || '')
+    const technical_strengths: string[] = normalizeStringArray(parsed.technical_strengths)
+    const development_areas: string[] = normalizeStringArray(parsed.development_areas)
+    const recommended_role_fit: string | undefined = parsed.recommended_role_fit
+      ? String(parsed.recommended_role_fit)
+      : undefined
+    const why_this_candidate: string[] = normalizeStringArray(parsed.why_this_candidate)
+    const role_fit: string[] = normalizeStringArray(parsed.role_fit)
+    const overall_summary: string = String(parsed.overall_summary || '')
 
+    // Handle recommendation field
     let recommendation: string = 'Weak Hire'
     if (allowedRecommendations.includes(parsed.recommendation)) {
       recommendation = parsed.recommendation
     }
 
+    // Backward compatibility: map new fields to old structure if needed
+    // Use overall_summary as summary, technical_strengths as strengths, development_areas as improvements
+    const summary: string = overall_summary || String(parsed.summary || '')
+    const strengths: string[] = technical_strengths.length > 0 
+      ? technical_strengths 
+      : normalizeStringArray(parsed.strengths)
+    const improvements: string[] = development_areas.length > 0 
+      ? development_areas 
+      : normalizeStringArray(parsed.improvements)
+
+    // Handle legacy justification field if present
     const justification: string | undefined = parsed.justification
       ? String(parsed.justification)
       : undefined
 
-    const recommended_role_fit: string | undefined = parsed.recommended_role_fit
-      ? String(parsed.recommended_role_fit)
-      : undefined
-
-    if (justification) {
+    if (justification && strengths.length > 0) {
       strengths.unshift(`Overall justification: ${justification}`)
     }
 
     const finalVerdict = {
+      // New fields
+      assessment_remarks,
+      tr1_remarks,
+      tr2_overall_remarks,
+      technical_strengths,
+      development_areas,
+      recommended_role_fit,
+      why_this_candidate,
+      role_fit,
+      overall_summary,
+      recommendation,
+      // Legacy fields for backward compatibility
       summary,
       strengths,
       improvements,
-      recommendation,
-      recommended_role_fit,
       generated_at: new Date(),
       model: usedModel,
     }
