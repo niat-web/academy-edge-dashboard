@@ -945,17 +945,65 @@ export default function StudentProfile() {
                           </div>
                         </div>
 
-                        {/* Overall Comments */}
+                        {/* Assessment Remarks */}
+                        {verdict?.tr1_remarks && (
+                            <div>
+                              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                <p className="text-sm text-gray-700 leading-relaxed">
+                                  {verdict.assessment_remarks}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
+                        {/* Evaluator Remarks */}
                         {(verdict?.tr1_remarks || student.tr1.overall_comments) && (
                           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                            <div className="bg-gray-50 border-b border-gray-200 px-5 py-3 flex items-center gap-2">
-                              <ClipboardListIcon className="w-4 h-4 text-blue-600" />
-                              <h5 className="text-sm font-bold text-gray-800">Overall Comments</h5>
+                            {/* Blue Header */}
+                            <div className="bg-blue-600 px-5 py-3">
+                              <h5 className="text-base font-bold text-white text-center uppercase tracking-wide">
+                                EVALUATOR REMARKS
+                              </h5>
                             </div>
+                            
+                            {/* Remarks Content Box */}
                             <div className="p-5">
-                              <div className="bg-blue-50/50 rounded-xl p-4 text-sm text-gray-700 leading-relaxed border border-blue-100/50">
-                                {verdict?.tr1_remarks || student.tr1.overall_comments}
+                              <div className="bg-gray-100 rounded-lg p-4 border border-gray-200">
+                                <p className="text-sm text-gray-700 leading-relaxed italic">
+                                  {verdict?.tr1_remarks || student.tr1.overall_comments}
+                                </p>
                               </div>
+                            </div>
+
+                            {/* Separator Line */}
+                            <div className="border-t border-gray-200"></div>
+
+                            {/* Footer with Evaluator and Date */}
+                            <div className="px-5 py-3 flex items-center justify-between bg-white">
+                              {/* Left: Evaluator Name */}
+                              <div className="flex items-center gap-2">
+                                <User className="w-4 h-4 text-gray-600" />
+                                <span className="text-sm text-gray-700">
+                                  — <strong>NxtWave Technical Evaluator</strong>
+                                </span>
+                              </div>
+
+                              {/* Right: Evaluation Date */}
+                              {student.tr1.interview_date && (
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="w-4 h-4 text-gray-600" />
+                                  <span className="text-sm text-gray-700">
+                                    Evaluated on: {(() => {
+                                      const date = new Date(student.tr1.interview_date)
+                                      return date.toLocaleDateString('en-GB', { 
+                                        day: 'numeric', 
+                                        month: 'short', 
+                                        year: 'numeric' 
+                                      })
+                                    })()}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}
@@ -1071,17 +1119,65 @@ export default function StudentProfile() {
                           </div>
                         </div>
 
-                        {/* Overall Comments */}
-                        {(verdict?.tr2_overall_remarks || student.tr2.overall_comments) && (
-                          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                            <div className="bg-gray-50 border-b border-gray-200 px-5 py-3 flex items-center gap-2">
-                              <ClipboardListIcon className="w-4 h-4 text-blue-600" />
-                              <h5 className="text-sm font-bold text-gray-800">Overall Comments</h5>
-                            </div>
-                            <div className="p-5">
-                              <div className="bg-blue-50/50 rounded-xl p-4 text-sm text-gray-700 leading-relaxed border border-blue-100/50">
-                                {verdict?.tr2_overall_remarks || student.tr2.overall_comments}
+                        {/* Assessment Remarks */}
+                        {verdict?.tr2_overall_remarks && (
+                            <div>
+                              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                <p className="text-sm text-gray-700 leading-relaxed">
+                                  {verdict.assessment_remarks}
+                                </p>
                               </div>
+                            </div>
+                          )}
+
+                        {/* Evaluator Remarks */}
+                        {(verdict?.tr2_overall_remarks || student.tr2.overall_remarks) && (
+                          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                            {/* Blue Header */}
+                            <div className="bg-blue-600 px-5 py-3">
+                              <h5 className="text-base font-bold text-white text-center uppercase tracking-wide">
+                                EVALUATOR REMARKS
+                              </h5>
+                            </div>
+                            
+                            {/* Remarks Content Box */}
+                            <div className="p-5">
+                              <div className="bg-gray-100 rounded-lg p-4 border border-gray-200">
+                                <p className="text-sm text-gray-700 leading-relaxed italic">
+                                  {verdict?.tr2_overall_remarks || student.tr2.overall_remarks}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Separator Line */}
+                            <div className="border-t border-gray-200"></div>
+
+                            {/* Footer with Evaluator and Date */}
+                            <div className="px-5 py-3 flex items-center justify-between bg-white">
+                              {/* Left: Evaluator Name */}
+                              <div className="flex items-center gap-2">
+                                <User className="w-4 h-4 text-gray-600" />
+                                <span className="text-sm text-gray-700">
+                                  — <strong>NxtWave Technical Evaluator</strong>
+                                </span>
+                              </div>
+
+                              {/* Right: Evaluation Date */}
+                              {student.tr2.interview_date && (
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="w-4 h-4 text-gray-600" />
+                                  <span className="text-sm text-gray-700">
+                                    Evaluated on: {(() => {
+                                      const date = new Date(student.tr2.interview_date)
+                                      return date.toLocaleDateString('en-GB', { 
+                                        day: 'numeric', 
+                                        month: 'short', 
+                                        year: 'numeric' 
+                                      })
+                                    })()}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}
