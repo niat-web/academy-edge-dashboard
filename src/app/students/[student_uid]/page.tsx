@@ -617,10 +617,6 @@ export default function StudentProfile() {
                             <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center shadow-md">
                               <Play className="w-6 h-6 text-white fill-current" />
                             </div>
-                            {/* Duration Badge */}
-                            <div className="absolute top-3 right-3 bg-gray-800 text-white text-xs font-medium px-2 py-1 rounded">
-                              35 mins
-                            </div>
                           </div>
 
                           {/* Bottom Section */}
