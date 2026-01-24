@@ -50,7 +50,9 @@ import {
 
   UserCheck,
   Play,
-  DollarSign
+  DollarSign,
+  Star,
+  Clock
 } from 'lucide-react'
 import ScoreCard from '@/components/ScoreCard'
 import ProgressIndicator from '@/components/ProgressIndicator'
@@ -440,7 +442,7 @@ export default function StudentProfile() {
 
               {/* Overall Summary */}
               {(verdict?.overall_summary || verdict?.summary) && (
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <div>
                   <div className="flex items-center gap-2 mb-4">
                     <FileText className="w-5 h-5 text-gray-600" />
                     <h3 className="text-lg font-semibold text-gray-900">Executive Summary</h3>
@@ -496,154 +498,167 @@ export default function StudentProfile() {
               )}
 
               {/* Evidence Vault */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div>
                 <div className="flex items-center gap-2 mb-4">
                   <ShieldCheck className="w-5 h-5 text-gray-600" />
                   <h3 className="text-lg font-semibold text-gray-900">Evidence Vault</h3>
                 </div>
                 <div className="space-y-4">
                   {/* First Row: Access Student Portal, TR2 Recording, and TR1 Recording */}
-                  {/* First Row: Access Student Portal, TR2 Recording, and TR1 Recording */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {/* Access Student Portal */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
-                        Student Portal
-                      </div>
+                    {(() => {
+                      const reportLinks = student.assessment?.report_links
+                      const links = reportLinks
+                        ? (typeof reportLinks === 'string'
+                          ? reportLinks.split(',').map(l => l.trim()).filter(Boolean)
+                          : Array.isArray(reportLinks)
+                            ? reportLinks
+                            : [reportLinks].filter(Boolean))
+                        : []
 
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                          <ExternalLink className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-gray-900">Access Portal</p>
-                          <p className="text-xs text-gray-500">Mobile: 9800141844 | OTP: 561811</p>
-                        </div>
-                      </div>
+                      const firstReportLink = links.length > 0 ? links[0] : null
+                      const hasData = !!firstReportLink
 
-                      {(() => {
-                        const reportLinks = student.assessment?.report_links
-                        const links = reportLinks
-                          ? (typeof reportLinks === 'string'
-                            ? reportLinks.split(',').map(l => l.trim()).filter(Boolean)
-                            : Array.isArray(reportLinks)
-                              ? reportLinks
-                              : [reportLinks].filter(Boolean))
-                          : []
-
-                        const firstReportLink = links.length > 0 ? links[0] : null
-
-                        return (
-                          <button
-                            onClick={() => {
-                              if (firstReportLink) {
-                                window.open(firstReportLink, '_blank')
-                              }
-                            }}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm"
-                            disabled={!firstReportLink}
-                          >
-                            View Report
-                          </button>
-                        )
-                      })()}
-                    </div>
-
-                    {/* TR2 Recording Link */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
-                        TR2 Interview
-                      </div>
-
-                      {student.tr2?.recording_link ? (
-                        <>
-                          <div className="flex items-center gap-3 mb-6">
-                            <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
-                              <Video className="w-5 h-5 text-emerald-600" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold text-gray-900">Recording Available</p>
-                              {/* <p className="text-xs text-gray-500 uppercase">Duration: 45:12</p> */}
-                              <p className="text-xs text-gray-500">Click below to watch</p>
+                      return (
+                        <div className={`bg-white rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow ${hasData ? 'border-blue-500' : 'border-gray-200'}`}>
+                          {/* Top Section with Play Button */}
+                          <div className="relative bg-blue-100 h-32 flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center shadow-md">
+                              <ExternalLink className="w-6 h-6 text-white" />
                             </div>
                           </div>
 
-                          <button
-                            onClick={() => {
-                              window.open(student.tr2.recording_link, '_blank')
-                            }}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all font-bold text-xs uppercase tracking-widest shadow-sm hover:shadow-md"
-                          >
-                            <Play className="w-3.5 h-3.5 fill-current" />
-                            WATCH TR2
-                          </button>
+                          {/* Bottom Section */}
+                          <div className="p-5">
+                            <h4 className="text-base font-bold text-gray-900 mb-1">Student Portal</h4>
+                            <p className="text-sm text-gray-500 mb-3">Access assessment report</p>
+                            
+                            {/* Phone and OTP Information */}
+                            <div className="mb-4">
+                              <p className="text-xs text-gray-500">Mobile: 9800141844 | OTP: 561811</p>
+                            </div>
+
+                            <button
+                              onClick={() => {
+                                if (firstReportLink) {
+                                  window.open(firstReportLink, '_blank')
+                                }
+                              }}
+                              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold text-xs uppercase tracking-widest"
+                              disabled={!firstReportLink}
+                            >
+                              <Play className="w-3.5 h-3.5 fill-current" />
+                              VIEW REPORT
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })()}
+
+                    {/* TR2 Recording Link */}
+                    <div className={`bg-white rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow ${student.tr2?.recording_link ? 'border-blue-500' : 'border-gray-200'}`}>
+                      {student.tr2?.recording_link ? (
+                        <>
+                          {/* Top Section with Play Button */}
+                          <div className="relative bg-blue-50 h-32 flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center shadow-md">
+                              <Play className="w-6 h-6 text-white fill-current" />
+                            </div>
+                            
+                          </div>
+
+                          {/* Bottom Section */}
+                          <div className="p-5">
+                            <h4 className="text-base font-bold text-gray-900 mb-1">TR2 Interview</h4>
+
+                            <button
+                              onClick={() => {
+                                window.open(student.tr2.recording_link, '_blank')
+                              }}
+                              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-bold text-xs uppercase tracking-widest"
+                            >
+                              <Play className="w-3.5 h-3.5 fill-current" />
+                              WATCH NOW
+                            </button>
+                          </div>
                         </>
                       ) : (
                         <>
-                          <div className="flex items-center gap-3 mb-6">
-                            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                              <Video className="w-5 h-5 text-gray-400" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold text-gray-900">No Recording</p>
-                              <p className="text-xs text-gray-500">Not available</p>
+                          {/* Top Section - Disabled State */}
+                          <div className="relative bg-gray-100 h-32 flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-full bg-gray-400 flex items-center justify-center">
+                              <Video className="w-6 h-6 text-white" />
                             </div>
                           </div>
-                          <button
-                            disabled
-                            className="w-full px-4 py-2.5 bg-gray-100 text-gray-400 rounded-lg font-medium text-sm cursor-not-allowed border border-gray-200"
-                          >
-                            Unavailable
-                          </button>
+
+                          {/* Bottom Section */}
+                          <div className="p-5">
+                            <h4 className="text-base font-bold text-gray-900 mb-1">TR2 Interview</h4>
+                            <p className="text-sm text-gray-500 mb-4">Recording not available</p>
+                            
+                            <button
+                              disabled
+                              className="w-full px-4 py-2.5 bg-gray-100 text-gray-400 rounded-lg font-medium text-sm cursor-not-allowed border border-gray-200"
+                            >
+                              Unavailable
+                            </button>
+                          </div>
                         </>
                       )}
                     </div>
 
                     {/* TR1 Recording Link */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
-                        TR1 Interview
-                      </div>
-
+                    <div className={`bg-white rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow ${student.tr1?.interview_recording_link ? 'border-blue-500' : 'border-gray-200'}`}>
                       {student.tr1?.interview_recording_link ? (
                         <>
-                          <div className="flex items-center gap-3 mb-6">
-                            <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
-                              <Video className="w-5 h-5 text-emerald-600" />
+                          {/* Top Section with Play Button */}
+                          <div className="relative bg-blue-100 h-32 flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center shadow-md">
+                              <Play className="w-6 h-6 text-white fill-current" />
                             </div>
-                            <div>
-                              <p className="text-sm font-semibold text-gray-900">Recording Available</p>
-                              <p className="text-xs text-gray-500">Click below to watch</p>
+                            {/* Duration Badge */}
+                            <div className="absolute top-3 right-3 bg-gray-800 text-white text-xs font-medium px-2 py-1 rounded">
+                              35 mins
                             </div>
                           </div>
 
-                          <button
-                            onClick={() => {
-                              window.open(student.tr1.interview_recording_link, '_blank')
-                            }}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-bold text-xs uppercase tracking-widest shadow-sm hover:shadow-md"
-                          >
-                            <Play className="w-3.5 h-3.5 fill-current" />
-                            WATCH TR1
-                          </button>
+                          {/* Bottom Section */}
+                          <div className="p-5">
+                            <h4 className="text-base font-bold text-gray-900 mb-1">TR1 Interview</h4>
+
+                            <button
+                              onClick={() => {
+                                window.open(student.tr1.interview_recording_link, '_blank')
+                              }}
+                              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-bold text-xs uppercase tracking-widest"
+                            >
+                              <Play className="w-3.5 h-3.5 fill-current" />
+                              WATCH NOW
+                            </button>
+                          </div>
                         </>
                       ) : (
                         <>
-                          <div className="flex items-center gap-3 mb-6">
-                            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                              <Video className="w-5 h-5 text-gray-400" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold text-gray-900">No Recording</p>
-                              <p className="text-xs text-gray-500">Not available</p>
+                          {/* Top Section - Disabled State */}
+                          <div className="relative bg-gray-100 h-32 flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-full bg-gray-400 flex items-center justify-center">
+                              <Video className="w-6 h-6 text-white" />
                             </div>
                           </div>
-                          <button
-                            disabled
-                            className="w-full px-4 py-2.5 bg-gray-100 text-gray-400 rounded-lg font-medium text-sm cursor-not-allowed border border-gray-200"
-                          >
-                            Unavailable
-                          </button>
+
+                          {/* Bottom Section */}
+                          <div className="p-5">
+                            <h4 className="text-base font-bold text-gray-900 mb-1">TR1 Interview</h4>
+                            <p className="text-sm text-gray-500 mb-4">Recording not available</p>
+
+                            <button
+                              disabled
+                              className="w-full px-4 py-2.5 bg-gray-100 text-gray-400 rounded-lg font-medium text-sm cursor-not-allowed border border-gray-200"
+                            >
+                              Unavailable
+                            </button>
+                          </div>
                         </>
                       )}
                     </div>
@@ -652,57 +667,59 @@ export default function StudentProfile() {
                   {/* Second Row: LeetCode Problem 1 and Problem 2 */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* LeetCode Problem 1 */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
-                        LeetCode Problem 1
-                      </div>
-
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                          <Code2 className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-gray-900">Problem Solution</p>
-                          <p className="text-xs text-gray-500">View code implementation</p>
+                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                      {/* Top Section with Code Snippet */}
+                      <div className="bg-gray-100 p-4 flex items-center justify-center min-h-[120px]">
+                        <div className="text-xs font-mono text-gray-700">
+                          <div className="text-gray-500">function solve(arr) {'{'}</div>
+                          <div className="text-gray-500 ml-4">// Implementation</div>
+                          <div className="text-gray-500 ml-4">return result;</div>
+                          <div className="text-gray-500">{'}'}</div>
                         </div>
                       </div>
 
-                      <button
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border-2 border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-semibold text-sm"
-                      >
-                        <Code2 className="w-4 h-4 text-blue-600" />
-                        VIEW CODE
-                      </button>
+                      {/* Bottom Section */}
+                      <div className="p-5">
+                        <h4 className="text-lg font-bold text-gray-900 mb-1">LeetCode #1</h4>
+
+                        <button
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm"
+                        >
+                          <Code2 className="w-4 h-4" />
+                          VIEW CODE
+                        </button>
+                      </div>
                     </div>
 
                     {/* LeetCode Problem 2 */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
-                        LeetCode Problem 2
-                      </div>
-
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                          <Code2 className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-gray-900">Problem Solution</p>
-                          <p className="text-xs text-gray-500">View code implementation</p>
+                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                      {/* Top Section with Code Snippet */}
+                      <div className="bg-gray-100 p-4 flex items-center justify-center min-h-[120px]">
+                        <div className="text-xs font-mono text-gray-700">
+                          <div className="text-gray-500">function solve(arr) {'{'}</div>
+                          <div className="text-gray-500 ml-4">// Implementation</div>
+                          <div className="text-gray-500 ml-4">return result;</div>
+                          <div className="text-gray-500">{'}'}</div>
                         </div>
                       </div>
 
-                      <button
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border-2 border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-semibold text-sm"
-                      >
-                        <Code2 className="w-4 h-4 text-blue-600" />
-                        VIEW CODE
-                      </button>
+                      {/* Bottom Section */}
+                      <div className="p-5">
+                        <h4 className="text-lg font-bold text-gray-900 mb-1">LeetCode #2</h4>
+                        
+                        <button
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm"
+                        >
+                          <Code2 className="w-4 h-4" />
+                          VIEW CODE
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div>
                 <div className="flex items-center gap-2 mb-6">
                   <BarChart3 className="w-5 h-5 text-gray-600" />
                   <h3 className="text-lg font-semibold text-gray-900">Detailed Scores</h3>
@@ -747,7 +764,7 @@ export default function StudentProfile() {
 
                       return (
                         <div className="space-y-4">
-                          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                          <div>
                             <div className="flex items-center gap-2 mb-6">
                               <BarChart3 className="w-5 h-5 text-gray-600" />
                               <h5 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Assessment Scores</h5>
@@ -827,7 +844,7 @@ export default function StudentProfile() {
                           {/* Assessment Remarks */}
                           {verdict?.assessment_remarks && (
                             <div>
-                              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                              <div className="bg-green-100 border border-green-500 rounded-lg p-4">
                                 <p className="text-sm text-gray-700 leading-relaxed">
                                   {verdict.assessment_remarks}
                                 </p>
@@ -842,7 +859,7 @@ export default function StudentProfile() {
                     {detailedScoresTab === 'tr1' && student.tr1 && Object.keys(student.tr1).length > 0 && (
                       <div className="space-y-4">
                         {/* TR1 Visualization */}
-                        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                        <div>
                           <h5 className="text-base font-bold text-gray-900 mb-4">DSA Interview</h5>
                           <div className="space-y-4">
                             {/* Problem Solving Rating */}
@@ -948,7 +965,7 @@ export default function StudentProfile() {
                         {/* Assessment Remarks */}
                         {verdict?.tr1_remarks && (
                             <div>
-                              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                              <div className="bg-green-100 border border-green-500 rounded-lg p-4">
                                 <p className="text-sm text-gray-700 leading-relaxed">
                                   {verdict.assessment_remarks}
                                 </p>
@@ -1014,7 +1031,7 @@ export default function StudentProfile() {
                     {detailedScoresTab === 'tr2' && student.tr2 && Object.keys(student.tr2).length > 0 && (
                       <div className="space-y-4">
                         {/* TR2 Visualization */}
-                        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                        <div>
                           <h5 className="text-base font-bold text-gray-900 mb-4">TR2 Interview</h5>
                           <div className="space-y-4">
                             {/* Communication */}
@@ -1122,7 +1139,7 @@ export default function StudentProfile() {
                         {/* Assessment Remarks */}
                         {verdict?.tr2_overall_remarks && (
                             <div>
-                              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                              <div className="bg-green-100 border border-green-500 rounded-lg p-4">
                                 <p className="text-sm text-gray-700 leading-relaxed">
                                   {verdict.assessment_remarks}
                                 </p>
