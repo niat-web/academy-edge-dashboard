@@ -531,8 +531,7 @@ export default function StudentProfile() {
 
                           {/* Bottom Section */}
                           <div className="p-5">
-                            <h4 className="text-base font-bold text-gray-900 mb-1">Student Portal</h4>
-                            <p className="text-sm text-gray-500 mb-3">Access assessment report</p>
+                            <h4 className="text-base font-bold text-gray-900 mb-1">Access assessment report</h4>
                             
                             {/* Phone and OTP Information */}
                             <div className="mb-4">
@@ -571,7 +570,7 @@ export default function StudentProfile() {
                           {/* Bottom Section */}
                           <div className="p-5">
                             <h4 className="text-base font-bold text-gray-900 mb-1">TR2 Interview</h4>
-
+                            <br></br>
                             <button
                               onClick={() => {
                                 window.open(student.tr2.recording_link, '_blank')
@@ -622,7 +621,7 @@ export default function StudentProfile() {
                           {/* Bottom Section */}
                           <div className="p-5">
                             <h4 className="text-base font-bold text-gray-900 mb-1">TR1 Interview</h4>
-
+                            <br></br>
                             <button
                               onClick={() => {
                                 window.open(student.tr1.interview_recording_link, '_blank')
@@ -661,57 +660,133 @@ export default function StudentProfile() {
                   </div>
 
                   {/* Second Row: LeetCode Problem 1 and Problem 2 */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* LeetCode Problem 1 */}
-                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                      {/* Top Section with Code Snippet */}
-                      <div className="bg-gray-100 p-4 flex items-center justify-center min-h-[120px]">
-                        <div className="text-xs font-mono text-gray-700">
-                          <div className="text-gray-500">function solve(arr) {'{'}</div>
-                          <div className="text-gray-500 ml-4">// Implementation</div>
-                          <div className="text-gray-500 ml-4">return result;</div>
-                          <div className="text-gray-500">{'}'}</div>
-                        </div>
-                      </div>
-
-                      {/* Bottom Section */}
-                      <div className="p-5">
-                        <h4 className="text-lg font-bold text-gray-900 mb-1">LeetCode #1</h4>
-
-                        <button
-                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm"
-                        >
-                          <Code2 className="w-4 h-4" />
-                          VIEW CODE
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* LeetCode Problem 2 */}
-                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                      {/* Top Section with Code Snippet */}
-                      <div className="bg-gray-100 p-4 flex items-center justify-center min-h-[120px]">
-                        <div className="text-xs font-mono text-gray-700">
-                          <div className="text-gray-500">function solve(arr) {'{'}</div>
-                          <div className="text-gray-500 ml-4">// Implementation</div>
-                          <div className="text-gray-500 ml-4">return result;</div>
-                          <div className="text-gray-500">{'}'}</div>
-                        </div>
-                      </div>
-
-                      {/* Bottom Section */}
-                      <div className="p-5">
-                        <h4 className="text-lg font-bold text-gray-900 mb-1">LeetCode #2</h4>
+                  {(() => {
+                    // Parse links from coding_problem_asked field
+                    // Links can be separated by comma, space, or might not be separated
+                    // When a string starts with "http", it's a new link
+                    const parseProblemLinks = (codingProblemAsked: any): string[] => {
+                      if (!codingProblemAsked) return []
+                      
+                      const str = String(codingProblemAsked).trim()
+                      if (!str) return []
+                      
+                      const links: string[] = []
+                      
+                      // Method 1: Try regex to find all URLs (handles most cases)
+                      const urlRegex = /https?:\/\/[^\s,]+/gi
+                      const regexMatches = str.match(urlRegex)
+                      
+                      if (regexMatches && regexMatches.length > 0) {
+                        regexMatches.forEach(match => {
+                          const cleaned = match.replace(/[,.\s]+$/, '').trim()
+                          if (cleaned) links.push(cleaned)
+                        })
+                      } else {
+                        // Method 2: Manual parsing - split and look for http prefix
+                        // First try comma separation
+                        const parts = str.includes(',') 
+                          ? str.split(',')
+                          : str.split(/\s+/)
                         
-                        <button
-                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm"
-                        >
-                          <Code2 className="w-4 h-4" />
-                          VIEW CODE
-                        </button>
+                        for (const part of parts) {
+                          const trimmed = part.trim()
+                          if (!trimmed) continue
+                          
+                          // If it starts with http, it's a link
+                          if (trimmed.toLowerCase().startsWith('http')) {
+                            // Extract the URL (might have trailing characters)
+                            const urlMatch = trimmed.match(/https?:\/\/[^\s,]+/)
+                            if (urlMatch) {
+                              links.push(urlMatch[0])
+                            } else {
+                              links.push(trimmed)
+                            }
+                          }
+                        }
+                      }
+                      
+                      // Return first 2 links
+                      return links.slice(0, 2)
+                    }
+                    
+                    const problemLinks = parseProblemLinks(student.tr1?.coding_problem_asked)
+                    const problem1Link = problemLinks[0] || null
+                    const problem2Link = problemLinks[1] || null
+                    
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* LeetCode Problem 1 */}
+                        <div className={`bg-white rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow ${problem1Link ? 'border-blue-500' : 'border-gray-200'}`}>
+                          {/* Top Section with Code Snippet */}
+                          <div className="bg-gray-100 p-4 flex items-center justify-center min-h-[120px]">
+                            <div className="text-xs font-mono text-gray-700">
+                              <div className="text-gray-500">function solve(arr) {'{'}</div>
+                              <div className="text-gray-500 ml-4">// Implementation</div>
+                              <div className="text-gray-500 ml-4">return result;</div>
+                              <div className="text-gray-500">{'}'}</div>
+                            </div>
+                          </div>
+
+                          {/* Bottom Section */}
+                          <div className="p-5">
+                            <h4 className="text-lg font-bold text-gray-900 mb-1">LeetCode #1</h4>
+
+                            <button
+                              onClick={() => {
+                                if (problem1Link) {
+                                  window.open(problem1Link, '_blank')
+                                }
+                              }}
+                              className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg transition-colors font-semibold text-sm ${
+                                problem1Link
+                                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              }`}
+                              disabled={!problem1Link}
+                            >
+                              <Code2 className="w-4 h-4" />
+                              VIEW CODE
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* LeetCode Problem 2 */}
+                        <div className={`bg-white rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow ${problem2Link ? 'border-blue-500' : 'border-gray-200'}`}>
+                          {/* Top Section with Code Snippet */}
+                          <div className="bg-gray-100 p-4 flex items-center justify-center min-h-[120px]">
+                            <div className="text-xs font-mono text-gray-700">
+                              <div className="text-gray-500">function solve(arr) {'{'}</div>
+                              <div className="text-gray-500 ml-4">// Implementation</div>
+                              <div className="text-gray-500 ml-4">return result;</div>
+                              <div className="text-gray-500">{'}'}</div>
+                            </div>
+                          </div>
+
+                          {/* Bottom Section */}
+                          <div className="p-5">
+                            <h4 className="text-lg font-bold text-gray-900 mb-1">LeetCode #2</h4>
+                            
+                            <button
+                              onClick={() => {
+                                if (problem2Link) {
+                                  window.open(problem2Link, '_blank')
+                                }
+                              }}
+                              className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg transition-colors font-semibold text-sm ${
+                                problem2Link
+                                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              }`}
+                              disabled={!problem2Link}
+                            >
+                              <Code2 className="w-4 h-4" />
+                              VIEW CODE
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    )
+                  })()}
                 </div>
               </div>
 
