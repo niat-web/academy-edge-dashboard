@@ -31,6 +31,14 @@ export async function GET(
         }
       },
       {
+        $lookup: {
+          from: 'students-resumes',
+          localField: 'student_uid',
+          foreignField: 'student_uid',
+          as: 'resume_data'
+        }
+      },
+      {
         $project: {
           student_uid: 1,
           basic_info: 1,
@@ -39,7 +47,8 @@ export async function GET(
           'timestamps.created_at': 1,
           'timestamps.updated_at': 1,
           tr1: { $arrayElemAt: ['$tr1_data', 0] },
-          assessment: { $arrayElemAt: ['$assessment_data', 0] }
+          assessment: { $arrayElemAt: ['$assessment_data', 0] },
+          resume: { $arrayElemAt: ['$resume_data', 0] }
         }
       }
     ]
@@ -78,6 +87,7 @@ export async function GET(
         tr2: studentData.tr2 || {},
         tr1: studentData.tr1?.tr1 || {},
         assessment: studentData.assessment?.assessment || {},
+        candidate_resume: studentData.resume?.candidate_resume || null,
         progress: {
           ...progress,
           percentage: progressPercentage,

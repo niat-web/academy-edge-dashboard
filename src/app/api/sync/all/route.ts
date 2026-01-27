@@ -16,6 +16,7 @@ export async function POST() {
       assessment: { success: false, error: null as string | null, count: 0 },
       tr1: { success: false, error: null as string | null, count: 0 },
       tr2: { success: false, error: null as string | null, count: 0 },
+      resumes: { success: false, error: null as string | null, count: 0 },
     }
 
     // Import sync functions dynamically to avoid circular dependencies
@@ -82,6 +83,22 @@ export async function POST() {
     } catch (error: any) {
       console.error('[SYNC] Error syncing assessment:', error)
       results.assessment = { success: false, error: error.message, count: 0 }
+    }
+
+    // 5. Sync Resumes Data (Depends on TR2 UIDs)
+    try {
+      console.log('[SYNC] Syncing resumes data...')
+      const resumesModule = await import('../resumes/route')
+      const response = await resumesModule.POST()
+      const data = await response.json()
+      if (data.status === 'ok') {
+        results.resumes = { success: true, error: null, count: data.upsertedCount || 0 }
+      } else {
+        results.resumes = { success: false, error: data.message || 'Unknown error', count: 0 }
+      }
+    } catch (error: any) {
+      console.error('[SYNC] Error syncing resumes:', error)
+      results.resumes = { success: false, error: error.message, count: 0 }
     }
 
     const duration = Date.now() - startTime

@@ -68,6 +68,7 @@ interface StudentData {
   tr2: any
   tr1: any
   assessment: any
+  candidate_resume?: string
   progress: {
     information: boolean
     assessment: boolean
@@ -147,13 +148,13 @@ export default function StudentProfile() {
           'Content-Type': 'application/json',
         },
       })
-      
+
       if (!response.ok) {
         const errorText = await response.text()
         console.error(`HTTP error! status: ${response.status}, body: ${errorText}`)
         throw new Error(`HTTP error! status: ${response.status}`)
       }
-      
+
       const data = await response.json()
       if (data.status === 'ok') {
         if (data.data) {
@@ -185,13 +186,13 @@ export default function StudentProfile() {
           'Content-Type': 'application/json',
         },
       })
-      
+
       if (!response.ok) {
         const errorText = await response.text()
         console.error(`HTTP error! status: ${response.status}, body: ${errorText}`)
         throw new Error(`HTTP error! status: ${response.status}`)
       }
-      
+
       const data = await response.json()
       if (data.status === 'ok' && data.data) {
         setVerdict(data.data)
@@ -303,14 +304,26 @@ export default function StudentProfile() {
                   const isWeakHire = recommendation === 'Weak Hire'
 
                   return (
-                    <div className={`px-6 py-3 rounded-lg font-bold text-lg ${isStrongHire ? 'bg-green-100 text-green-700' :
-                      isHire ? 'bg-blue-100 text-blue-700' :
-                        'bg-yellow-100 text-yellow-700'
-                      }`}>
-                      {recommendation === 'Strong Hire' ? 'STRONG' :
-                        recommendation === 'Hire' ? 'MEDIUM' :
-                          recommendation === 'Weak Hire' ? 'LOW' :
-                            recommendation.toUpperCase()}
+                    <div className="flex items-center gap-3">
+                      {student.candidate_resume && (
+                        <button
+                          onClick={() => window.open(student.candidate_resume, '_blank')}
+                          className="flex items-center gap-2 px-4 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-700 hover:text-white transition-all font-medium text-lg shadow-sm group"
+                        >
+                          <FileText className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" />
+                          <span>View Resume</span>
+                          <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-white transition-colors" />
+                        </button>
+                      )}
+                      <div className={`px-6 py-3 rounded-lg font-bold text-lg ${isStrongHire ? 'bg-green-100 text-green-700' :
+                        isHire ? 'bg-blue-100 text-blue-700' :
+                          'bg-yellow-100 text-yellow-700'
+                        }`}>
+                        {recommendation === 'Strong Hire' ? 'STRONG' :
+                          recommendation === 'Hire' ? 'MEDIUM' :
+                            recommendation === 'Weak Hire' ? 'LOW' :
+                              recommendation.toUpperCase()}
+                      </div>
                     </div>
                   )
                 })()}
@@ -329,14 +342,14 @@ export default function StudentProfile() {
                   const communication = student.tr1?.communication ? parseFloat(String(student.tr1.communication)) : null
 
                   // Calculate percentages for circular progress
-                  const dsaPercentage = dsaScore !== null && dsaSection !== null && dsaSection > 0 
-                    ? Math.round((dsaScore / dsaSection) * 100) 
+                  const dsaPercentage = dsaScore !== null && dsaSection !== null && dsaSection > 0
+                    ? Math.round((dsaScore / dsaSection) * 100)
                     : null
-                  const codingPercentage = codingScore !== null && codingSection !== null && codingSection > 0 
-                    ? Math.round((codingScore / codingSection) * 100) 
+                  const codingPercentage = codingScore !== null && codingSection !== null && codingSection > 0
+                    ? Math.round((codingScore / codingSection) * 100)
                     : null
-                  const csPercentage = csFundamentalsScore !== null && csFundamentalsSection !== null && csFundamentalsSection > 0 
-                    ? Math.round((csFundamentalsScore / csFundamentalsSection) * 100) 
+                  const csPercentage = csFundamentalsScore !== null && csFundamentalsSection !== null && csFundamentalsSection > 0
+                    ? Math.round((csFundamentalsScore / csFundamentalsSection) * 100)
                     : null
 
                   // Circular progress component
@@ -345,7 +358,7 @@ export default function StudentProfile() {
                     const radius = (size - 8) / 2
                     const circumference = 2 * Math.PI * radius
                     const offset = circumference - (percentage / 100) * circumference
-                    
+
                     return (
                       <div className="relative" style={{ width: size, height: size }}>
                         <svg className="transform -rotate-90" width={size} height={size}>
@@ -383,7 +396,7 @@ export default function StudentProfile() {
                     if (rating === null) return <div className="text-2xl font-bold text-gray-400">N/A</div>
                     const fullStars = Math.floor(rating)
                     const hasHalfStar = rating % 1 >= 0.5
-                    
+
                     return (
                       <div className="flex flex-col items-center justify-center" style={{ minHeight: '100px' }}>
                         <div className="flex gap-1 mb-3">
@@ -447,7 +460,7 @@ export default function StudentProfile() {
                     <FileText className="w-5 h-5 text-gray-600" />
                     <h3 className="text-lg font-semibold text-gray-900">Executive Summary</h3>
                   </div>
-                  
+
                   {/* Blue Bordered Box with 3 Sections */}
                   <div className="border-2 border-blue-500 rounded-lg overflow-hidden">
                     {/* Section 1: Overall Summary */}
@@ -532,7 +545,7 @@ export default function StudentProfile() {
                           {/* Bottom Section */}
                           <div className="p-5">
                             <h4 className="text-base font-bold text-gray-900 mb-1">Access assessment report</h4>
-                            
+
                             {/* Phone and OTP Information */}
                             <div className="mb-4">
                               <p className="text-xs text-gray-500">Mobile: 9800141844 | OTP: 561811</p>
@@ -564,7 +577,7 @@ export default function StudentProfile() {
                             <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center shadow-md">
                               <Play className="w-6 h-6 text-white fill-current" />
                             </div>
-                            
+
                           </div>
 
                           {/* Bottom Section */}
@@ -595,7 +608,7 @@ export default function StudentProfile() {
                           <div className="p-5">
                             <h4 className="text-base font-bold text-gray-900 mb-1">TR2 Interview</h4>
                             <p className="text-sm text-gray-500 mb-4">Recording not available</p>
-                            
+
                             <button
                               disabled
                               className="w-full px-4 py-2.5 bg-gray-100 text-gray-400 rounded-lg font-medium text-sm cursor-not-allowed border border-gray-200"
@@ -666,16 +679,16 @@ export default function StudentProfile() {
                     // When a string starts with "http", it's a new link
                     const parseProblemLinks = (codingProblemAsked: any): string[] => {
                       if (!codingProblemAsked) return []
-                      
+
                       const str = String(codingProblemAsked).trim()
                       if (!str) return []
-                      
+
                       const links: string[] = []
-                      
+
                       // Method 1: Try regex to find all URLs (handles most cases)
                       const urlRegex = /https?:\/\/[^\s,]+/gi
                       const regexMatches = str.match(urlRegex)
-                      
+
                       if (regexMatches && regexMatches.length > 0) {
                         regexMatches.forEach(match => {
                           const cleaned = match.replace(/[,.\s]+$/, '').trim()
@@ -684,14 +697,14 @@ export default function StudentProfile() {
                       } else {
                         // Method 2: Manual parsing - split and look for http prefix
                         // First try comma separation
-                        const parts = str.includes(',') 
+                        const parts = str.includes(',')
                           ? str.split(',')
                           : str.split(/\s+/)
-                        
+
                         for (const part of parts) {
                           const trimmed = part.trim()
                           if (!trimmed) continue
-                          
+
                           // If it starts with http, it's a link
                           if (trimmed.toLowerCase().startsWith('http')) {
                             // Extract the URL (might have trailing characters)
@@ -704,15 +717,15 @@ export default function StudentProfile() {
                           }
                         }
                       }
-                      
+
                       // Return first 2 links
                       return links.slice(0, 2)
                     }
-                    
+
                     const problemLinks = parseProblemLinks(student.tr1?.coding_problem_asked)
                     const problem1Link = problemLinks[0] || null
                     const problem2Link = problemLinks[1] || null
-                    
+
                     return (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* LeetCode Problem 1 */}
@@ -737,11 +750,10 @@ export default function StudentProfile() {
                                   window.open(problem1Link, '_blank')
                                 }
                               }}
-                              className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg transition-colors font-semibold text-sm ${
-                                problem1Link
-                                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                              }`}
+                              className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg transition-colors font-semibold text-sm ${problem1Link
+                                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                }`}
                               disabled={!problem1Link}
                             >
                               <Code2 className="w-4 h-4" />
@@ -765,18 +777,17 @@ export default function StudentProfile() {
                           {/* Bottom Section */}
                           <div className="p-5">
                             <h4 className="text-lg font-bold text-gray-900 mb-1">LeetCode #2</h4>
-                            
+
                             <button
                               onClick={() => {
                                 if (problem2Link) {
                                   window.open(problem2Link, '_blank')
                                 }
                               }}
-                              className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg transition-colors font-semibold text-sm ${
-                                problem2Link
-                                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                              }`}
+                              className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg transition-colors font-semibold text-sm ${problem2Link
+                                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                }`}
                               disabled={!problem2Link}
                             >
                               <Code2 className="w-4 h-4" />
@@ -840,7 +851,7 @@ export default function StudentProfile() {
                               <BarChart3 className="w-5 h-5 text-gray-600" />
                               <h5 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Assessment Scores</h5>
                             </div>
-                            
+
                             {/* Table Format */}
                             <div className="overflow-x-auto">
                               <table className="w-full">
@@ -1035,14 +1046,14 @@ export default function StudentProfile() {
 
                         {/* Assessment Remarks */}
                         {verdict?.tr1_remarks && (
-                            <div>
-                              <div className="bg-green-100 border border-green-500 rounded-lg p-4">
-                                <p className="text-sm text-gray-700 leading-relaxed">
-                                  {verdict.assessment_remarks}
-                                </p>
-                              </div>
+                          <div>
+                            <div className="bg-green-100 border border-green-500 rounded-lg p-4">
+                              <p className="text-sm text-gray-700 leading-relaxed">
+                                {verdict.assessment_remarks}
+                              </p>
                             </div>
-                          )}
+                          </div>
+                        )}
 
                         {/* Evaluator Remarks */}
                         {(verdict?.tr1_remarks || student.tr1.overall_comments) && (
@@ -1053,7 +1064,7 @@ export default function StudentProfile() {
                                 EVALUATOR REMARKS
                               </h5>
                             </div>
-                            
+
                             {/* Remarks Content Box */}
                             <div className="p-5">
                               <div className="bg-gray-100 rounded-lg p-4 border border-gray-200">
@@ -1083,10 +1094,10 @@ export default function StudentProfile() {
                                   <span className="text-sm text-gray-700">
                                     Evaluated on: {(() => {
                                       const date = new Date(student.tr1.interview_date)
-                                      return date.toLocaleDateString('en-GB', { 
-                                        day: 'numeric', 
-                                        month: 'short', 
-                                        year: 'numeric' 
+                                      return date.toLocaleDateString('en-GB', {
+                                        day: 'numeric',
+                                        month: 'short',
+                                        year: 'numeric'
                                       })
                                     })()}
                                   </span>
@@ -1209,14 +1220,14 @@ export default function StudentProfile() {
 
                         {/* Assessment Remarks */}
                         {verdict?.tr2_overall_remarks && (
-                            <div>
-                              <div className="bg-green-100 border border-green-500 rounded-lg p-4">
-                                <p className="text-sm text-gray-700 leading-relaxed">
-                                  {verdict.assessment_remarks}
-                                </p>
-                              </div>
+                          <div>
+                            <div className="bg-green-100 border border-green-500 rounded-lg p-4">
+                              <p className="text-sm text-gray-700 leading-relaxed">
+                                {verdict.assessment_remarks}
+                              </p>
                             </div>
-                          )}
+                          </div>
+                        )}
 
                         {/* Evaluator Remarks */}
                         {(verdict?.tr2_overall_remarks || student.tr2.overall_remarks) && (
@@ -1227,7 +1238,7 @@ export default function StudentProfile() {
                                 EVALUATOR REMARKS
                               </h5>
                             </div>
-                            
+
                             {/* Remarks Content Box */}
                             <div className="p-5">
                               <div className="bg-gray-100 rounded-lg p-4 border border-gray-200">
@@ -1257,10 +1268,10 @@ export default function StudentProfile() {
                                   <span className="text-sm text-gray-700">
                                     Evaluated on: {(() => {
                                       const date = new Date(student.tr2.interview_date)
-                                      return date.toLocaleDateString('en-GB', { 
-                                        day: 'numeric', 
-                                        month: 'short', 
-                                        year: 'numeric' 
+                                      return date.toLocaleDateString('en-GB', {
+                                        day: 'numeric',
+                                        month: 'short',
+                                        year: 'numeric'
                                       })
                                     })()}
                                   </span>
