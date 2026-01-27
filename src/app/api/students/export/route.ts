@@ -241,7 +241,13 @@ export async function GET(request: Request) {
             }
             else if (verdictType) {
                 // Only add the final verdict
-                rowData.final_verdict = student.verdict?.recommendation || 'N/A'
+                const rawVerdict = student.verdict?.recommendation || 'Weak Hire'
+                const verdictMap: Record<string, string> = {
+                    'Strong Hire': 'strong',
+                    'Hire': 'medium',
+                    'Weak Hire': 'low'
+                }
+                rowData.final_verdict = verdictMap[rawVerdict] || rawVerdict
             }
             else {
                 // Add all default columns
@@ -251,7 +257,14 @@ export async function GET(request: Request) {
                 rowData.assessment_score = assessment?.student_assessment_score || 'N/A'
                 rowData.tr1_score = student.tr1?.tr1?.total_score || 'N/A'
                 rowData.tr2_score = student.tr2?.tr2?.overall_score || 'N/A'
-                rowData.final_verdict = student.verdict?.recommendation || 'N/A'
+
+                const rawVerdict = student.verdict?.recommendation || 'Weak Hire'
+                const verdictMap: Record<string, string> = {
+                    'Strong Hire': 'strong',
+                    'Hire': 'medium',
+                    'Weak Hire': 'low'
+                }
+                rowData.final_verdict = verdictMap[rawVerdict] || rawVerdict
             }
 
             worksheet.addRow(rowData)
