@@ -97,6 +97,9 @@ interface Verdict {
   recommendation?: 'Strong Hire' | 'Hire' | 'Weak Hire'
   generated_at?: Date | string
   model?: string
+  top_percentage?: number | null
+  total_cumulative_score?: number
+  section_percentiles?: Record<string, number>
   // Legacy fields for backward compatibility
   summary?: string
   strengths?: string[]
@@ -158,6 +161,7 @@ export default function StudentProfile() {
       const data = await response.json()
       if (data.status === 'ok') {
         if (data.data) {
+          console.log('Fetched verdict:', data.data);
           setVerdict(data.data)
         } else {
           // No verdict exists, automatically generate it
@@ -304,501 +308,38 @@ export default function StudentProfile() {
                   const isWeakHire = recommendation === 'Weak Hire'
 
                   return (
-                    <div className="flex items-center gap-3">
-                      {student.candidate_resume && (
-                        <button
-                          onClick={() => window.open(student.candidate_resume, '_blank')}
-                          className="flex items-center gap-2 px-4 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-700 hover:text-white transition-all font-medium text-lg shadow-sm group"
-                        >
-                          <FileText className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" />
-                          <span>View Resume</span>
-                          <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-white transition-colors" />
-                        </button>
-                      )}
-                      <div className={`px-6 py-3 rounded-lg font-bold text-lg ${isStrongHire ? 'bg-green-100 text-green-700' :
-                        isHire ? 'bg-blue-100 text-blue-700' :
-                          'bg-yellow-100 text-yellow-700'
-                        }`}>
-                        {recommendation === 'Strong Hire' ? 'STRONG' :
-                          recommendation === 'Hire' ? 'MEDIUM' :
-                            recommendation === 'Weak Hire' ? 'LOW' :
-                              recommendation.toUpperCase()}
-                      </div>
-                    </div>
-                  )
-                })()}
-              </div>
-
-              {/* Key Metrics Section */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {(() => {
-                  const scores = student.assessment?.scores || {}
-                  const dsaScore = scores.dsa_student_score ? parseFloat(String(scores.dsa_student_score)) : null
-                  const dsaSection = scores.dsa_section_score ? parseFloat(String(scores.dsa_section_score)) : null
-                  const codingScore = scores.coding_student_score ? parseFloat(String(scores.coding_student_score)) : null
-                  const codingSection = scores.coding_section_score ? parseFloat(String(scores.coding_section_score)) : null
-                  const csFundamentalsScore = scores.cs_fundamentals_student_score ? parseFloat(String(scores.cs_fundamentals_student_score)) : null
-                  const csFundamentalsSection = scores.cs_fundamentals_section_score ? parseFloat(String(scores.cs_fundamentals_section_score)) : null
-                  const communication = student.tr1?.communication ? parseFloat(String(student.tr1.communication)) : null
-
-                  // Calculate percentages for circular progress
-                  const dsaPercentage = dsaScore !== null && dsaSection !== null && dsaSection > 0
-                    ? Math.round((dsaScore / dsaSection) * 100)
-                    : null
-                  const codingPercentage = codingScore !== null && codingSection !== null && codingSection > 0
-                    ? Math.round((codingScore / codingSection) * 100)
-                    : null
-                  const csPercentage = csFundamentalsScore !== null && csFundamentalsSection !== null && csFundamentalsSection > 0
-                    ? Math.round((csFundamentalsScore / csFundamentalsSection) * 100)
-                    : null
-
-                  // Circular progress component
-                  const CircularProgress = ({ percentage, size = 80 }: { percentage: number | null, size?: number }) => {
-                    if (percentage === null) return <div className="text-2xl font-bold text-gray-400">N/A</div>
-                    const radius = (size - 8) / 2
-                    const circumference = 2 * Math.PI * radius
-                    const offset = circumference - (percentage / 100) * circumference
-
-                    return (
-                      <div className="relative" style={{ width: size, height: size }}>
-                        <svg className="transform -rotate-90" width={size} height={size}>
-                          <circle
-                            cx={size / 2}
-                            cy={size / 2}
-                            r={radius}
-                            stroke="currentColor"
-                            strokeWidth="6"
-                            fill="none"
-                            className="text-gray-200"
-                          />
-                          <circle
-                            cx={size / 2}
-                            cy={size / 2}
-                            r={radius}
-                            stroke="currentColor"
-                            strokeWidth="6"
-                            fill="none"
-                            strokeDasharray={circumference}
-                            strokeDashoffset={offset}
-                            strokeLinecap="round"
-                            className="text-blue-600 transition-all duration-300"
-                          />
-                        </svg>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-xl font-bold text-blue-600">{percentage}</span>
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  // Star rating component
-                  const StarRating = ({ rating }: { rating: number | null }) => {
-                    if (rating === null) return <div className="text-2xl font-bold text-gray-400">N/A</div>
-                    const fullStars = Math.floor(rating)
-                    const hasHalfStar = rating % 1 >= 0.5
-
-                    return (
-                      <div className="flex flex-col items-center justify-center" style={{ minHeight: '100px' }}>
-                        <div className="flex gap-1 mb-3">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <svg
-                              key={star}
-                              className={`w-6 h-6 ${star <= fullStars ? 'text-yellow-400 fill-current' : star === fullStars + 1 && hasHalfStar ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
-                              viewBox="0 0 24 24"
-                            >
-                              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                            </svg>
-                          ))}
-                        </div>
-                        <span className="text-lg font-bold text-orange-500">{rating}/5</span>
-                      </div>
-                    )
-                  }
-
-                  return (
-                    <>
-                      {/* DSA */}
-                      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm flex flex-col items-center">
-                        <CircularProgress percentage={dsaPercentage} size={100} />
-                        <div className="mt-4 text-center">
-                          <div className="text-base font-bold text-gray-900">DSA</div>
-                        </div>
-                      </div>
-
-                      {/* Coding Speed */}
-                      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm flex flex-col items-center">
-                        <CircularProgress percentage={codingPercentage} size={100} />
-                        <div className="mt-4 text-center">
-                          <div className="text-base font-bold text-gray-900">Coding Speed</div>
-                        </div>
-                      </div>
-
-                      {/* CS Fundamentals */}
-                      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm flex flex-col items-center">
-                        <CircularProgress percentage={csPercentage} size={100} />
-                        <div className="mt-4 text-center">
-                          <div className="text-base font-bold text-gray-900">CS Fundamentals</div>
-                        </div>
-                      </div>
-
-                      {/* Communication */}
-                      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm flex flex-col items-center justify-center">
-                        <StarRating rating={communication} />
-                        <div className="mt-4 text-center">
-                          <div className="text-base font-bold text-gray-900">Communication</div>
-                        </div>
-                      </div>
-                    </>
-                  )
-                })()}
-              </div>
-
-              {/* Overall Summary */}
-              {(verdict?.overall_summary || verdict?.summary) && (
-                <div>
-                  <div className="flex items-center gap-2 mb-4">
-                    <FileText className="w-5 h-5 text-gray-600" />
-                    <h3 className="text-lg font-semibold text-gray-900">Executive Summary</h3>
-                  </div>
-
-                  {/* Blue Bordered Box with 3 Sections */}
-                  <div className="border-2 border-blue-500 rounded-lg overflow-hidden">
-                    {/* Section 1: Overall Summary */}
-                    <div className="p-4 border-b-2 border-blue-500">
-                      <ul className="space-y-2">
-                        {(verdict.overall_summary || verdict.summary || '').split('. ').filter(s => s.trim().length > 0).map((sentence, idx) => (
-                          <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
-                            <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
-                            <span>{sentence.trim()}{!sentence.trim().endsWith('.') ? '.' : ''}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    {/* Section 2: Best Fit Roles */}
-                    <div className="p-4 border-b-2 border-blue-500">
-                      <div className="space-y-4">
-                        {/* Best Fit Roles */}
-                        {verdict.role_fit && verdict.role_fit.length > 0 && (
-                          <div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <Briefcase className="w-5 h-5 text-gray-600" />
-                              <h4 className="text-base font-semibold text-gray-900">BEST FIT ROLES</h4>
-                            </div>
-                            <p className="text-sm text-gray-700 ml-7">
-                              {verdict.role_fit.slice(0, 3).join(' · ')}
-                            </p>
-                          </div>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <div className="flex items-center gap-3">
+                        {student.candidate_resume && (
+                          <button
+                            onClick={() => window.open(student.candidate_resume, '_blank')}
+                            className="flex items-center gap-2 px-4 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-700 hover:text-white transition-all font-medium text-lg shadow-sm group"
+                          >
+                            <FileText className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" />
+                            <span>View Resume</span>
+                            <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-white transition-colors" />
+                          </button>
                         )}
-                      </div>
-                    </div>
-
-                    {/* Section 3: Why This Candidate (with blue shading) */}
-                    {verdict.why_this_candidate && verdict.why_this_candidate.length > 0 && (
-                      <div className="p-4 bg-blue-50">
-                        <h4 className="text-base font-bold text-blue-900 mb-3">Why This Candidate?</h4>
-                        <ul className="space-y-2">
-                          {verdict.why_this_candidate.map((point, idx) => (
-                            <li key={idx} className="text-sm text-gray-700">
-                              {point}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Evidence Vault */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <ShieldCheck className="w-5 h-5 text-gray-600" />
-                  <h3 className="text-lg font-semibold text-gray-900">Evidence Vault</h3>
-                </div>
-                <div className="space-y-4">
-                  {/* First Row: Access Student Portal, TR2 Recording, and TR1 Recording */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Access Student Portal */}
-                    {(() => {
-                      const reportLinks = student.assessment?.report_links
-                      const links = reportLinks
-                        ? (typeof reportLinks === 'string'
-                          ? reportLinks.split(',').map(l => l.trim()).filter(Boolean)
-                          : Array.isArray(reportLinks)
-                            ? reportLinks
-                            : [reportLinks].filter(Boolean))
-                        : []
-
-                      const firstReportLink = links.length > 0 ? links[0] : null
-                      const hasData = !!firstReportLink
-
-                      return (
-                        <div className={`bg-white rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow ${hasData ? 'border-blue-500' : 'border-gray-200'}`}>
-                          {/* Top Section with Play Button */}
-                          <div className="relative bg-blue-100 h-32 flex items-center justify-center">
-                            <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center shadow-md">
-                              <ExternalLink className="w-6 h-6 text-white" />
-                            </div>
-                          </div>
-
-                          {/* Bottom Section */}
-                          <div className="p-5">
-                            <h4 className="text-base font-bold text-gray-900 mb-1">Access assessment report</h4>
-
-                            {/* Phone and OTP Information */}
-                            <div className="mb-4">
-                              <p className="text-xs text-gray-500">Mobile: 9800141844 | OTP: 561811</p>
-                            </div>
-
-                            <button
-                              onClick={() => {
-                                if (firstReportLink) {
-                                  window.open(firstReportLink, '_blank')
-                                }
-                              }}
-                              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold text-xs uppercase tracking-widest"
-                              disabled={!firstReportLink}
-                            >
-                              <Play className="w-3.5 h-3.5 fill-current" />
-                              VIEW REPORT
-                            </button>
-                          </div>
+                        <div className={`px-6 py-3 rounded-lg font-bold text-lg shadow-sm ${isStrongHire ? 'bg-green-100 text-green-700' :
+                          isHire ? 'bg-blue-100 text-blue-700' :
+                            'bg-yellow-100 text-yellow-700'
+                          }`}>
+                          {recommendation === 'Strong Hire' ? 'STRONG' :
+                            recommendation === 'Hire' ? 'MEDIUM' :
+                              recommendation === 'Weak Hire' ? 'LOW' :
+                                recommendation.toUpperCase()}
                         </div>
-                      )
-                    })()}
+                      </div>
 
-                    {/* TR2 Recording Link */}
-                    <div className={`bg-white rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow ${student.tr2?.recording_link ? 'border-blue-500' : 'border-gray-200'}`}>
-                      {student.tr2?.recording_link ? (
-                        <>
-                          {/* Top Section with Play Button */}
-                          <div className="relative bg-blue-50 h-32 flex items-center justify-center">
-                            <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center shadow-md">
-                              <Play className="w-6 h-6 text-white fill-current" />
-                            </div>
-
-                          </div>
-
-                          {/* Bottom Section */}
-                          <div className="p-5">
-                            <h4 className="text-base font-bold text-gray-900 mb-1">TR2 Interview</h4>
-                            <br></br>
-                            <button
-                              onClick={() => {
-                                window.open(student.tr2.recording_link, '_blank')
-                              }}
-                              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-bold text-xs uppercase tracking-widest"
-                            >
-                              <Play className="w-3.5 h-3.5 fill-current" />
-                              WATCH NOW
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          {/* Top Section - Disabled State */}
-                          <div className="relative bg-gray-100 h-32 flex items-center justify-center">
-                            <div className="w-12 h-12 rounded-full bg-gray-400 flex items-center justify-center">
-                              <Video className="w-6 h-6 text-white" />
-                            </div>
-                          </div>
-
-                          {/* Bottom Section */}
-                          <div className="p-5">
-                            <h4 className="text-base font-bold text-gray-900 mb-1">TR2 Interview</h4>
-                            <p className="text-sm text-gray-500 mb-4">Recording not available</p>
-
-                            <button
-                              disabled
-                              className="w-full px-4 py-2.5 bg-gray-100 text-gray-400 rounded-lg font-medium text-sm cursor-not-allowed border border-gray-200"
-                            >
-                              Unavailable
-                            </button>
-                          </div>
-                        </>
+                      {(verdict?.top_percentage !== undefined && verdict?.top_percentage !== null) && (
+                        <div className="flex items-center gap-2 px-4 py-1.5 bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-600 text-white text-sm font-black rounded-full border border-amber-300/30 transition-all hover:scale-105 cursor-default">
+                          <Sparkles className="w-4 h-4 text-amber-100" />
+                          <span className="tracking-tight">TOP {Number(verdict.top_percentage).toFixed(4)}% RANKED</span>
+                        </div>
                       )}
                     </div>
-
-                    {/* TR1 Recording Link */}
-                    <div className={`bg-white rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow ${student.tr1?.interview_recording_link ? 'border-blue-500' : 'border-gray-200'}`}>
-                      {student.tr1?.interview_recording_link ? (
-                        <>
-                          {/* Top Section with Play Button */}
-                          <div className="relative bg-blue-100 h-32 flex items-center justify-center">
-                            <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center shadow-md">
-                              <Play className="w-6 h-6 text-white fill-current" />
-                            </div>
-                          </div>
-
-                          {/* Bottom Section */}
-                          <div className="p-5">
-                            <h4 className="text-base font-bold text-gray-900 mb-1">TR1 Interview</h4>
-                            <br></br>
-                            <button
-                              onClick={() => {
-                                window.open(student.tr1.interview_recording_link, '_blank')
-                              }}
-                              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-bold text-xs uppercase tracking-widest"
-                            >
-                              <Play className="w-3.5 h-3.5 fill-current" />
-                              WATCH NOW
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          {/* Top Section - Disabled State */}
-                          <div className="relative bg-gray-100 h-32 flex items-center justify-center">
-                            <div className="w-12 h-12 rounded-full bg-gray-400 flex items-center justify-center">
-                              <Video className="w-6 h-6 text-white" />
-                            </div>
-                          </div>
-
-                          {/* Bottom Section */}
-                          <div className="p-5">
-                            <h4 className="text-base font-bold text-gray-900 mb-1">TR1 Interview</h4>
-                            <p className="text-sm text-gray-500 mb-4">Recording not available</p>
-
-                            <button
-                              disabled
-                              className="w-full px-4 py-2.5 bg-gray-100 text-gray-400 rounded-lg font-medium text-sm cursor-not-allowed border border-gray-200"
-                            >
-                              Unavailable
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Second Row: LeetCode Problem 1 and Problem 2 */}
-                  {(() => {
-                    // Parse links from coding_problem_asked field
-                    // Links can be separated by comma, space, or might not be separated
-                    // When a string starts with "http", it's a new link
-                    const parseProblemLinks = (codingProblemAsked: any): string[] => {
-                      if (!codingProblemAsked) return []
-
-                      const str = String(codingProblemAsked).trim()
-                      if (!str) return []
-
-                      const links: string[] = []
-
-                      // Method 1: Try regex to find all URLs (handles most cases)
-                      const urlRegex = /https?:\/\/[^\s,]+/gi
-                      const regexMatches = str.match(urlRegex)
-
-                      if (regexMatches && regexMatches.length > 0) {
-                        regexMatches.forEach(match => {
-                          const cleaned = match.replace(/[,.\s]+$/, '').trim()
-                          if (cleaned) links.push(cleaned)
-                        })
-                      } else {
-                        // Method 2: Manual parsing - split and look for http prefix
-                        // First try comma separation
-                        const parts = str.includes(',')
-                          ? str.split(',')
-                          : str.split(/\s+/)
-
-                        for (const part of parts) {
-                          const trimmed = part.trim()
-                          if (!trimmed) continue
-
-                          // If it starts with http, it's a link
-                          if (trimmed.toLowerCase().startsWith('http')) {
-                            // Extract the URL (might have trailing characters)
-                            const urlMatch = trimmed.match(/https?:\/\/[^\s,]+/)
-                            if (urlMatch) {
-                              links.push(urlMatch[0])
-                            } else {
-                              links.push(trimmed)
-                            }
-                          }
-                        }
-                      }
-
-                      // Return first 2 links
-                      return links.slice(0, 2)
-                    }
-
-                    const problemLinks = parseProblemLinks(student.tr1?.coding_problem_asked)
-                    const problem1Link = problemLinks[0] || null
-                    const problem2Link = problemLinks[1] || null
-
-                    return (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* LeetCode Problem 1 */}
-                        <div className={`bg-white rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow ${problem1Link ? 'border-blue-500' : 'border-gray-200'}`}>
-                          {/* Top Section with Code Snippet */}
-                          <div className="bg-gray-100 p-4 flex items-center justify-center min-h-[120px]">
-                            <div className="text-xs font-mono text-gray-700">
-                              <div className="text-gray-500">function solve(arr) {'{'}</div>
-                              <div className="text-gray-500 ml-4">// Implementation</div>
-                              <div className="text-gray-500 ml-4">return result;</div>
-                              <div className="text-gray-500">{'}'}</div>
-                            </div>
-                          </div>
-
-                          {/* Bottom Section */}
-                          <div className="p-5">
-                            <h4 className="text-lg font-bold text-gray-900 mb-1">LeetCode #1</h4>
-
-                            <button
-                              onClick={() => {
-                                if (problem1Link) {
-                                  window.open(problem1Link, '_blank')
-                                }
-                              }}
-                              className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg transition-colors font-semibold text-sm ${problem1Link
-                                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                }`}
-                              disabled={!problem1Link}
-                            >
-                              <Code2 className="w-4 h-4" />
-                              VIEW CODE
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* LeetCode Problem 2 */}
-                        <div className={`bg-white rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow ${problem2Link ? 'border-blue-500' : 'border-gray-200'}`}>
-                          {/* Top Section with Code Snippet */}
-                          <div className="bg-gray-100 p-4 flex items-center justify-center min-h-[120px]">
-                            <div className="text-xs font-mono text-gray-700">
-                              <div className="text-gray-500">function solve(arr) {'{'}</div>
-                              <div className="text-gray-500 ml-4">// Implementation</div>
-                              <div className="text-gray-500 ml-4">return result;</div>
-                              <div className="text-gray-500">{'}'}</div>
-                            </div>
-                          </div>
-
-                          {/* Bottom Section */}
-                          <div className="p-5">
-                            <h4 className="text-lg font-bold text-gray-900 mb-1">LeetCode #2</h4>
-
-                            <button
-                              onClick={() => {
-                                if (problem2Link) {
-                                  window.open(problem2Link, '_blank')
-                                }
-                              }}
-                              className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg transition-colors font-semibold text-sm ${problem2Link
-                                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                }`}
-                              disabled={!problem2Link}
-                            >
-                              <Code2 className="w-4 h-4" />
-                              VIEW CODE
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })()}
-                </div>
+                  )
+                })()}
               </div>
 
               <div>
@@ -843,6 +384,43 @@ export default function StudentProfile() {
                       const dsaMax = scores.dsa_section_score ? parseFloat(String(scores.dsa_section_score)) : null
                       const csScore = scores.cs_fundamentals_student_score ? parseFloat(String(scores.cs_fundamentals_student_score)) : null
                       const csMax = scores.cs_fundamentals_section_score ? parseFloat(String(scores.cs_fundamentals_section_score)) : null
+                      const quantScore = scores.quantitative_student_score ? parseFloat(String(scores.quantitative_student_score)) : null
+                      const quantMax = scores.quantitative_section_score ? parseFloat(String(scores.quantitative_section_score)) : null
+                      const logicalScore = scores.logical_student_score ? parseFloat(String(scores.logical_student_score)) : null
+                      const logicalMax = scores.logical_section_score ? parseFloat(String(scores.logical_section_score)) : null
+                      const verbalScore = scores.verbal_student_score ? parseFloat(String(scores.verbal_student_score)) : null
+                      const verbalMax = scores.verbal_section_score ? parseFloat(String(scores.verbal_section_score)) : null
+
+                      const renderScoreField = (label: string, score: number | null, max: number | null, sectionKey: string) => {
+                        if (score === null || max === null) return null;
+                        const percentile = verdict?.section_percentiles?.[sectionKey];
+
+                        return (
+                          <>
+                            <tr>
+                              <td className="py-3 px-4 text-gray-900">{label}</td>
+                              <td className="py-3 px-4">
+                                <div className="flex items-center gap-3">
+                                  <span className="text-gray-900 font-semibold">
+                                    {score % 1 === 0 ? score : score.toFixed(1)}/{max}
+                                  </span>
+                                  {percentile && (
+                                    <div className="flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-amber-400 to-amber-600 text-white text-[10px] font-black rounded-full shadow-sm">
+                                      <Sparkles className="w-2.5 h-2.5" />
+                                      TOP {percentile.toFixed(4)}%
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td colSpan={2} className="p-0">
+                                <div className="h-px bg-gray-100"></div>
+                              </td>
+                            </tr>
+                          </>
+                        );
+                      };
 
                       return (
                         <div className="space-y-4">
@@ -867,57 +445,12 @@ export default function StudentProfile() {
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {/* Coding Row */}
-                                  {codingScore !== null && codingMax !== null && (
-                                    <>
-                                      <tr>
-                                        <td className="py-3 px-4 text-gray-900">Coding</td>
-                                        <td className="py-3 px-4">
-                                          <span className="inline-block px-3 py-1 bg-blue-50 text-blue-600 rounded-md font-medium">
-                                            {codingScore.toFixed(1)}/{codingMax}
-                                          </span>
-                                        </td>
-                                      </tr>
-                                      <tr>
-                                        <td colSpan={2} className="p-0">
-                                          <div className="h-px bg-gray-200"></div>
-                                        </td>
-                                      </tr>
-                                    </>
-                                  )}
-
-                                  {/* DSA MCQ Row */}
-                                  {dsaScore !== null && dsaMax !== null && (
-                                    <>
-                                      <tr>
-                                        <td className="py-3 px-4 text-gray-900">DSA MCQ</td>
-                                        <td className="py-3 px-4">
-                                          <span className="inline-block px-3 py-1 bg-orange-50 text-orange-600 rounded-md font-medium">
-                                            {dsaScore}/{dsaMax}
-                                          </span>
-                                        </td>
-                                      </tr>
-                                      <tr>
-                                        <td colSpan={2} className="p-0">
-                                          <div className="h-px bg-gray-200"></div>
-                                        </td>
-                                      </tr>
-                                    </>
-                                  )}
-
-                                  {/* CS Fundamentals Row */}
-                                  {csScore !== null && csMax !== null && (
-                                    <>
-                                      <tr>
-                                        <td className="py-3 px-4 text-gray-900">CS Fundamentals</td>
-                                        <td className="py-3 px-4">
-                                          <span className="inline-block px-3 py-1 bg-blue-50 text-blue-600 rounded-md font-medium">
-                                            {csScore}/{csMax}
-                                          </span>
-                                        </td>
-                                      </tr>
-                                    </>
-                                  )}
+                                  {renderScoreField('Coding', codingScore, codingMax, 'coding')}
+                                  {renderScoreField('DSA MCQ', dsaScore, dsaMax, 'dsa_mcq')}
+                                  {renderScoreField('CS Fundamentals', csScore, csMax, 'cs_fundamentals')}
+                                  {renderScoreField('Quantitative', quantScore, quantMax, 'quantitative')}
+                                  {renderScoreField('Logical Reasoning', logicalScore, logicalMax, 'logical')}
+                                  {renderScoreField('Verbal Ability', verbalScore, verbalMax, 'verbal')}
                                 </tbody>
                               </table>
                             </div>
@@ -1411,6 +944,480 @@ export default function StudentProfile() {
                   </>
                 </div>
               </div>
+
+              {/* Key Metrics Section */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {(() => {
+                  const scores = student.assessment?.scores || {}
+                  const dsaScore = scores.dsa_student_score ? parseFloat(String(scores.dsa_student_score)) : null
+                  const dsaSection = scores.dsa_section_score ? parseFloat(String(scores.dsa_section_score)) : null
+                  const codingScore = scores.coding_student_score ? parseFloat(String(scores.coding_student_score)) : null
+                  const codingSection = scores.coding_section_score ? parseFloat(String(scores.coding_section_score)) : null
+                  const csFundamentalsScore = scores.cs_fundamentals_student_score ? parseFloat(String(scores.cs_fundamentals_student_score)) : null
+                  const csFundamentalsSection = scores.cs_fundamentals_section_score ? parseFloat(String(scores.cs_fundamentals_section_score)) : null
+                  const communication = student.tr1?.communication ? parseFloat(String(student.tr1.communication)) : null
+
+                  // Calculate percentages for circular progress
+                  const dsaPercentage = dsaScore !== null && dsaSection !== null && dsaSection > 0
+                    ? Math.round((dsaScore / dsaSection) * 100)
+                    : null
+                  const codingPercentage = codingScore !== null && codingSection !== null && codingSection > 0
+                    ? Math.round((codingScore / codingSection) * 100)
+                    : null
+                  const csPercentage = csFundamentalsScore !== null && csFundamentalsSection !== null && csFundamentalsSection > 0
+                    ? Math.round((csFundamentalsScore / csFundamentalsSection) * 100)
+                    : null
+
+                  // Circular progress component
+                  const CircularProgress = ({ percentage, size = 80 }: { percentage: number | null, size?: number }) => {
+                    if (percentage === null) return <div className="text-2xl font-bold text-gray-400">N/A</div>
+                    const radius = (size - 8) / 2
+                    const circumference = 2 * Math.PI * radius
+                    const offset = circumference - (percentage / 100) * circumference
+
+                    return (
+                      <div className="relative" style={{ width: size, height: size }}>
+                        <svg className="transform -rotate-90" width={size} height={size}>
+                          <circle
+                            cx={size / 2}
+                            cy={size / 2}
+                            r={radius}
+                            stroke="currentColor"
+                            strokeWidth="6"
+                            fill="none"
+                            className="text-gray-200"
+                          />
+                          <circle
+                            cx={size / 2}
+                            cy={size / 2}
+                            r={radius}
+                            stroke="currentColor"
+                            strokeWidth="6"
+                            fill="none"
+                            strokeDasharray={circumference}
+                            strokeDashoffset={offset}
+                            strokeLinecap="round"
+                            className="text-blue-600 transition-all duration-300"
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-xl font-bold text-blue-600">{percentage}</span>
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  // Star rating component
+                  const StarRating = ({ rating }: { rating: number | null }) => {
+                    if (rating === null) return <div className="text-2xl font-bold text-gray-400">N/A</div>
+                    const fullStars = Math.floor(rating)
+                    const hasHalfStar = rating % 1 >= 0.5
+
+                    return (
+                      <div className="flex flex-col items-center justify-center" style={{ minHeight: '100px' }}>
+                        <div className="flex gap-1 mb-3">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <svg
+                              key={star}
+                              className={`w-6 h-6 ${star <= fullStars ? 'text-yellow-400 fill-current' : star === fullStars + 1 && hasHalfStar ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
+                              viewBox="0 0 24 24"
+                            >
+                              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                            </svg>
+                          ))}
+                        </div>
+                        <span className="text-lg font-bold text-orange-500">{rating}/5</span>
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <>
+                      {/* DSA */}
+                      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm flex flex-col items-center">
+                        <CircularProgress percentage={dsaPercentage} size={100} />
+                        <div className="mt-4 text-center">
+                          <div className="text-base font-bold text-gray-900">DSA</div>
+                        </div>
+                      </div>
+
+                      {/* Coding Speed */}
+                      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm flex flex-col items-center">
+                        <CircularProgress percentage={codingPercentage} size={100} />
+                        <div className="mt-4 text-center">
+                          <div className="text-base font-bold text-gray-900">Coding Speed</div>
+                        </div>
+                      </div>
+
+                      {/* CS Fundamentals */}
+                      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm flex flex-col items-center">
+                        <CircularProgress percentage={csPercentage} size={100} />
+                        <div className="mt-4 text-center">
+                          <div className="text-base font-bold text-gray-900">CS Fundamentals</div>
+                        </div>
+                      </div>
+
+                      {/* Communication */}
+                      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm flex flex-col items-center justify-center">
+                        <StarRating rating={communication} />
+                        <div className="mt-4 text-center">
+                          <div className="text-base font-bold text-gray-900">Communication</div>
+                        </div>
+                      </div>
+                    </>
+                  )
+                })()}
+              </div>
+
+              {/* Overall Summary */}
+              {(verdict?.overall_summary || verdict?.summary) && (
+                <div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <FileText className="w-5 h-5 text-gray-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">Executive Summary</h3>
+                  </div>
+
+                  {/* Blue Bordered Box with 3 Sections */}
+                  <div className="border-2 border-blue-500 rounded-lg overflow-hidden">
+                    {/* Section 1: Overall Summary */}
+                    <div className="p-4 border-b-2 border-blue-500">
+                      <ul className="space-y-2">
+                        {(verdict.overall_summary || verdict.summary || '').split('. ').filter(s => s.trim().length > 0).map((sentence, idx) => (
+                          <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+                            <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+                            <span>{sentence.trim()}{!sentence.trim().endsWith('.') ? '.' : ''}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Section 2: Best Fit Roles */}
+                    <div className="p-4 border-b-2 border-blue-500">
+                      <div className="space-y-4">
+                        {/* Best Fit Roles */}
+                        {verdict.role_fit && verdict.role_fit.length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Briefcase className="w-5 h-5 text-gray-600" />
+                              <h4 className="text-base font-semibold text-gray-900">BEST FIT ROLES</h4>
+                            </div>
+                            <p className="text-sm text-gray-700 ml-7">
+                              {verdict.role_fit.slice(0, 3).join(' · ')}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Section 3: Why This Candidate (with blue shading) */}
+                    {verdict.why_this_candidate && verdict.why_this_candidate.length > 0 && (
+                      <div className="p-4 bg-blue-50">
+                        <h4 className="text-base font-bold text-blue-900 mb-3">Why This Candidate?</h4>
+                        <ul className="space-y-2">
+                          {verdict.why_this_candidate.map((point, idx) => (
+                            <li key={idx} className="text-sm text-gray-700">
+                              {point}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Evidence Vault */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <ShieldCheck className="w-5 h-5 text-gray-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">Evidence Vault</h3>
+                </div>
+                <div className="space-y-4">
+                  {/* First Row: Access Student Portal, TR2 Recording, and TR1 Recording */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Access Student Portal */}
+                    {(() => {
+                      const reportLinks = student.assessment?.report_links
+                      const links = reportLinks
+                        ? (typeof reportLinks === 'string'
+                          ? reportLinks.split(',').map(l => l.trim()).filter(Boolean)
+                          : Array.isArray(reportLinks)
+                            ? reportLinks
+                            : [reportLinks].filter(Boolean))
+                        : []
+
+                      const firstReportLink = links.length > 0 ? links[0] : null
+                      const hasData = !!firstReportLink
+
+                      return (
+                        <div className={`bg-white rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow ${hasData ? 'border-blue-500' : 'border-gray-200'}`}>
+                          {/* Top Section with Play Button */}
+                          <div className="relative bg-blue-100 h-32 flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center shadow-md">
+                              <ExternalLink className="w-6 h-6 text-white" />
+                            </div>
+                          </div>
+
+                          {/* Bottom Section */}
+                          <div className="p-5">
+                            <h4 className="text-base font-bold text-gray-900 mb-1">Access assessment report</h4>
+
+                            {/* Phone and OTP Information */}
+                            <div className="mb-4">
+                              <p className="text-xs text-gray-500">Mobile: 9800141844 | OTP: 561811</p>
+                            </div>
+
+                            <button
+                              onClick={() => {
+                                if (firstReportLink) {
+                                  window.open(firstReportLink, '_blank')
+                                }
+                              }}
+                              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold text-xs uppercase tracking-widest"
+                              disabled={!firstReportLink}
+                            >
+                              <Play className="w-3.5 h-3.5 fill-current" />
+                              VIEW REPORT
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })()}
+
+                    {/* TR2 Recording Link */}
+                    <div className={`bg-white rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow ${student.tr2?.recording_link ? 'border-blue-500' : 'border-gray-200'}`}>
+                      {student.tr2?.recording_link ? (
+                        <>
+                          {/* Top Section with Play Button */}
+                          <div className="relative bg-blue-50 h-32 flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center shadow-md">
+                              <Play className="w-6 h-6 text-white fill-current" />
+                            </div>
+
+                          </div>
+
+                          {/* Bottom Section */}
+                          <div className="p-5">
+                            <h4 className="text-base font-bold text-gray-900 mb-1">TR2 Interview</h4>
+                            <br></br>
+                            <button
+                              onClick={() => {
+                                window.open(student.tr2.recording_link, '_blank')
+                              }}
+                              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-bold text-xs uppercase tracking-widest"
+                            >
+                              <Play className="w-3.5 h-3.5 fill-current" />
+                              WATCH NOW
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {/* Top Section - Disabled State */}
+                          <div className="relative bg-gray-100 h-32 flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-full bg-gray-400 flex items-center justify-center">
+                              <Video className="w-6 h-6 text-white" />
+                            </div>
+                          </div>
+
+                          {/* Bottom Section */}
+                          <div className="p-5">
+                            <h4 className="text-base font-bold text-gray-900 mb-1">TR2 Interview</h4>
+                            <p className="text-sm text-gray-500 mb-4">Recording not available</p>
+
+                            <button
+                              disabled
+                              className="w-full px-4 py-2.5 bg-gray-100 text-gray-400 rounded-lg font-medium text-sm cursor-not-allowed border border-gray-200"
+                            >
+                              Unavailable
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {/* TR1 Recording Link */}
+                    <div className={`bg-white rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow ${student.tr1?.interview_recording_link ? 'border-blue-500' : 'border-gray-200'}`}>
+                      {student.tr1?.interview_recording_link ? (
+                        <>
+                          {/* Top Section with Play Button */}
+                          <div className="relative bg-blue-100 h-32 flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center shadow-md">
+                              <Play className="w-6 h-6 text-white fill-current" />
+                            </div>
+                          </div>
+
+                          {/* Bottom Section */}
+                          <div className="p-5">
+                            <h4 className="text-base font-bold text-gray-900 mb-1">TR1 Interview</h4>
+                            <br></br>
+                            <button
+                              onClick={() => {
+                                window.open(student.tr1.interview_recording_link, '_blank')
+                              }}
+                              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-bold text-xs uppercase tracking-widest"
+                            >
+                              <Play className="w-3.5 h-3.5 fill-current" />
+                              WATCH NOW
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {/* Top Section - Disabled State */}
+                          <div className="relative bg-gray-100 h-32 flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-full bg-gray-400 flex items-center justify-center">
+                              <Video className="w-6 h-6 text-white" />
+                            </div>
+                          </div>
+
+                          {/* Bottom Section */}
+                          <div className="p-5">
+                            <h4 className="text-base font-bold text-gray-900 mb-1">TR1 Interview</h4>
+                            <p className="text-sm text-gray-500 mb-4">Recording not available</p>
+
+                            <button
+                              disabled
+                              className="w-full px-4 py-2.5 bg-gray-100 text-gray-400 rounded-lg font-medium text-sm cursor-not-allowed border border-gray-200"
+                            >
+                              Unavailable
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Second Row: LeetCode Problem 1 and Problem 2 */}
+                  {(() => {
+                    // Parse links from coding_problem_asked field
+                    // Links can be separated by comma, space, or might not be separated
+                    // When a string starts with "http", it's a new link
+                    const parseProblemLinks = (codingProblemAsked: any): string[] => {
+                      if (!codingProblemAsked) return []
+
+                      const str = String(codingProblemAsked).trim()
+                      if (!str) return []
+
+                      const links: string[] = []
+
+                      // Method 1: Try regex to find all URLs (handles most cases)
+                      const urlRegex = /https?:\/\/[^\s,]+/gi
+                      const regexMatches = str.match(urlRegex)
+
+                      if (regexMatches && regexMatches.length > 0) {
+                        regexMatches.forEach(match => {
+                          const cleaned = match.replace(/[,.\s]+$/, '').trim()
+                          if (cleaned) links.push(cleaned)
+                        })
+                      } else {
+                        // Method 2: Manual parsing - split and look for http prefix
+                        // First try comma separation
+                        const parts = str.includes(',')
+                          ? str.split(',')
+                          : str.split(/\s+/)
+
+                        for (const part of parts) {
+                          const trimmed = part.trim()
+                          if (!trimmed) continue
+
+                          // If it starts with http, it's a link
+                          if (trimmed.toLowerCase().startsWith('http')) {
+                            // Extract the URL (might have trailing characters)
+                            const urlMatch = trimmed.match(/https?:\/\/[^\s,]+/)
+                            if (urlMatch) {
+                              links.push(urlMatch[0])
+                            } else {
+                              links.push(trimmed)
+                            }
+                          }
+                        }
+                      }
+
+                      // Return first 2 links
+                      return links.slice(0, 2)
+                    }
+
+                    const problemLinks = parseProblemLinks(student.tr1?.coding_problem_asked)
+                    const problem1Link = problemLinks[0] || null
+                    const problem2Link = problemLinks[1] || null
+
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* LeetCode Problem 1 */}
+                        <div className={`bg-white rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow ${problem1Link ? 'border-blue-500' : 'border-gray-200'}`}>
+                          {/* Top Section with Code Snippet */}
+                          <div className="bg-gray-100 p-4 flex items-center justify-center min-h-[120px]">
+                            <div className="text-xs font-mono text-gray-700">
+                              <div className="text-gray-500">function solve(arr) {'{'}</div>
+                              <div className="text-gray-500 ml-4">// Implementation</div>
+                              <div className="text-gray-500 ml-4">return result;</div>
+                              <div className="text-gray-500">{'}'}</div>
+                            </div>
+                          </div>
+
+                          {/* Bottom Section */}
+                          <div className="p-5">
+                            <h4 className="text-lg font-bold text-gray-900 mb-1">LeetCode #1</h4>
+
+                            <button
+                              onClick={() => {
+                                if (problem1Link) {
+                                  window.open(problem1Link, '_blank')
+                                }
+                              }}
+                              className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg transition-colors font-semibold text-sm ${problem1Link
+                                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                }`}
+                              disabled={!problem1Link}
+                            >
+                              <Code2 className="w-4 h-4" />
+                              VIEW CODE
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* LeetCode Problem 2 */}
+                        <div className={`bg-white rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow ${problem2Link ? 'border-blue-500' : 'border-gray-200'}`}>
+                          {/* Top Section with Code Snippet */}
+                          <div className="bg-gray-100 p-4 flex items-center justify-center min-h-[120px]">
+                            <div className="text-xs font-mono text-gray-700">
+                              <div className="text-gray-500">function solve(arr) {'{'}</div>
+                              <div className="text-gray-500 ml-4">// Implementation</div>
+                              <div className="text-gray-500 ml-4">return result;</div>
+                              <div className="text-gray-500">{'}'}</div>
+                            </div>
+                          </div>
+
+                          {/* Bottom Section */}
+                          <div className="p-5">
+                            <h4 className="text-lg font-bold text-gray-900 mb-1">LeetCode #2</h4>
+
+                            <button
+                              onClick={() => {
+                                if (problem2Link) {
+                                  window.open(problem2Link, '_blank')
+                                }
+                              }}
+                              className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg transition-colors font-semibold text-sm ${problem2Link
+                                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                }`}
+                              disabled={!problem2Link}
+                            >
+                              <Code2 className="w-4 h-4" />
+                              VIEW CODE
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </div>
+              </div>
+
+
             </div>
           )}
         </div>

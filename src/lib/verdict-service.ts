@@ -479,11 +479,11 @@ If information is limited:
     // Backward compatibility: map new fields to old structure if needed
     // Use overall_summary as summary, technical_strengths as strengths, development_areas as improvements
     const summary: string = overall_summary || String(parsed.summary || '')
-    const strengths: string[] = technical_strengths.length > 0 
-      ? technical_strengths 
+    const strengths: string[] = technical_strengths.length > 0
+      ? technical_strengths
       : normalizeStringArray(parsed.strengths)
-    const improvements: string[] = development_areas.length > 0 
-      ? development_areas 
+    const improvements: string[] = development_areas.length > 0
+      ? development_areas
       : normalizeStringArray(parsed.improvements)
 
     // Handle legacy justification field if present
@@ -493,6 +493,46 @@ If information is limited:
 
     if (justification && strengths.length > 0) {
       strengths.unshift(`Overall justification: ${justification}`)
+    }
+
+    // Calculate cumulative score and percentile
+    const assessmentScoreVal = parseFloat(String(assessmentScores.student_assessment_score || 0))
+    const tr1ScoreVal = parseFloat(String(tr1Data.total_score || 0))
+    const tr2ScoreVal = parseFloat(String(tr2Data.overall_score || 0))
+    const totalScore = assessmentScoreVal + tr1ScoreVal + tr2ScoreVal
+
+    // Linear Score Mapping Logic (0.1% to 0.5%)
+    // Based on the cohort of students who reached the final verdict stage
+    const minScore = 200 // Assumed baseline min score for finalists
+    const maxScore = 350 // Assumed baseline max score for top performers
+
+    let topPercentage = 0.5 - ((totalScore - minScore) / (maxScore - minScore)) * (0.5 - 0.1)
+
+    // Clamp values to ensure they stay within [0.1, 0.5]
+    topPercentage = Math.max(0.1, Math.min(0.5, topPercentage))
+
+    // Section-specific percentiles (Linear Mapping)
+    const sectionPercentiles: Record<string, number> = {}
+    const sections = [
+      { key: 'coding', student: 'coding_student_score', max: 'coding_section_score', minScore: 50, maxScore: 100 },
+      { key: 'dsa_mcq', student: 'dsa_student_score', max: 'dsa_section_score', minScore: 40, maxScore: 100 },
+      { key: 'cs_fundamentals', student: 'cs_fundamentals_student_score', max: 'cs_fundamentals_section_score', minScore: 40, maxScore: 100 },
+      { key: 'quantitative', student: 'quantitative_student_score', max: 'quantitative_section_score', minScore: 10, maxScore: 30 },
+      { key: 'logical', student: 'logical_student_score', max: 'logical_section_score', minScore: 10, maxScore: 30 },
+      { key: 'verbal', student: 'verbal_student_score', max: 'verbal_section_score', minScore: 10, maxScore: 30 }
+    ]
+
+    for (const section of sections) {
+      const score = parseFloat(String(assessmentScores[section.student] || 0))
+      if (score > 0) {
+        let p = 0.5 - ((score - section.minScore) / (section.maxScore - section.minScore)) * (0.5 - 0.1)
+        p = Math.max(0.1, Math.min(0.5, p))
+        // Only add if performance is "good" (e.g., student score is >= 70% of the section max)
+        const sectionMax = parseFloat(String(assessmentScores[section.max] || 100))
+        if (score >= sectionMax * 0.7) {
+          sectionPercentiles[section.key] = p
+        }
+      }
     }
 
     const finalVerdict = {
@@ -507,6 +547,11 @@ If information is limited:
       role_fit,
       overall_summary,
       recommendation,
+      // Score and Rank fields
+      total_cumulative_score: totalScore,
+      top_percentage: topPercentage <= 0.5 ? topPercentage : null,
+      percentile_rank: topPercentage,
+      section_percentiles: Object.keys(sectionPercentiles).length > 0 ? sectionPercentiles : undefined,
       // Legacy fields for backward compatibility
       summary,
       strengths,
