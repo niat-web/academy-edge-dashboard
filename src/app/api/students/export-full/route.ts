@@ -4,8 +4,119 @@ import clientPromise from '@/lib/mongodb'
 
 type FlatRow = Record<string, string | number | boolean>
 
-function normalizeKeySegment(segment: string): string {
-  return segment.replace(/\s+/g, ' ').trim()
+const RAW_DATA_ALIASES: Record<string, string> = {
+  'audit team selection status': 'Audit Team Selection Status',
+  'coding section duration in mins': 'Coding Section Duration (in Mins)',
+  'coding time spent in mins': 'Coding Time Spent (in Mins)',
+  'coding user score': 'Coding User Score',
+  'college name': 'College Name',
+  'contact no': 'Contact Number',
+  'contact number': 'Contact Number',
+  'contatct no': 'Contact Number',
+  'cs fundamentals section duration in mins': 'CS Fundamentals Section Duration (in Mins)',
+  'cs fundamentals time spent in mins': 'CS Fundamentals Time Spent (in Mins)',
+  'date of assessment': 'Date of Assessment',
+  'dsa section duration in mins': 'DSA Section Duration (in Mins)',
+  'dsa time spent in mins': 'DSA Time Spent (in Mins)',
+  email: 'Email',
+  'logical reasoning section duration in mins': 'Logical Reasoning Section Duration (in Mins)',
+  'logical reasoning time spent in mins': 'Logical Reasoning Time Spent (in Mins)',
+  name: 'Name',
+  'quantitative aptitude section duration in mins': 'Quantitative Aptitude Section Duration (in Mins)',
+  'quantitative aptitude time spent in mins': 'Quantitative Aptitude Time Spent (in Mins)',
+  'report links': 'Report Links',
+  'score criteria selection status': 'Score Criteria Selection Status',
+  'verbal ability section duration in mins': 'Verbal Ability Section Duration (in Mins)',
+  'verbal ability time spent in mins': 'Verbal Ability Time Spent (in Mins)',
+}
+
+const SEGMENT_LABELS: Record<string, string> = {
+  student_uid: 'Student UID',
+  profile_url: 'Profile URL',
+  students_tr2: 'TR2',
+  students_assessment: 'Assessment',
+  students_tr1: 'TR1',
+  students_resumes: 'Resume',
+  final_verdicts: 'Final Verdict',
+  basic_info: 'Basic Info',
+  raw_data: 'Raw Data',
+  timestamps: 'Timestamps',
+  progress: 'Progress',
+  candidate_resume: 'Candidate Resume',
+}
+
+const WORD_LABELS: Record<string, string> = {
+  ai: 'AI',
+  cs: 'CS',
+  dsa: 'DSA',
+  id: 'ID',
+  mcq: 'MCQ',
+  mongodb: 'MongoDB',
+  tr1: 'TR1',
+  tr2: 'TR2',
+  uid: 'UID',
+  url: 'URL',
+}
+
+function normalizeForLookup(segment: string): string {
+  return segment
+    .replace(/[()[\].]/g, ' ')
+    .replace(/[^a-zA-Z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+}
+
+function toReadableText(segment: string): string {
+  const compact = segment
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (!compact) {
+    return segment
+  }
+
+  return compact
+    .split(' ')
+    .map((word) => {
+      const lower = word.toLowerCase()
+      if (WORD_LABELS[lower]) {
+        return WORD_LABELS[lower]
+      }
+
+      return lower.charAt(0).toUpperCase() + lower.slice(1)
+    })
+    .join(' ')
+}
+
+function normalizeKeySegment(segment: string, prefix: string): string {
+  const collapsed = segment.replace(/\s+/g, ' ').trim()
+
+  if (prefix.endsWith('raw_data')) {
+    const alias = RAW_DATA_ALIASES[normalizeForLookup(collapsed)]
+    if (alias) {
+      return alias
+    }
+
+    return toReadableText(collapsed)
+  }
+
+  return collapsed
+}
+
+function formatColumnHeader(key: string): string {
+  const parts = key.split('.').map((segment) => {
+    const match = segment.match(/^(.*?)(?:\[(\d+)\])?$/)
+    const baseSegment = match?.[1] || segment
+    const arrayIndex = match?.[2]
+
+    const baseLabel = SEGMENT_LABELS[baseSegment] || toReadableText(baseSegment)
+    return arrayIndex ? `${baseLabel} ${arrayIndex}` : baseLabel
+  })
+
+  const dedupedParts = parts.filter((part, index) => part && part !== parts[index - 1])
+  return dedupedParts.join(' - ')
 }
 
 function omitStudentUid<T extends Record<string, unknown> | null | undefined>(doc: T) {
@@ -60,7 +171,7 @@ function flattenRecord(
         return
       }
 
-      const sanitizedKey = normalizeKeySegment(rawKey)
+      const sanitizedKey = normalizeKeySegment(rawKey, prefix)
       const nextPrefix = prefix ? `${prefix}.${sanitizedKey}` : sanitizedKey
       flattenRecord(nestedValue, nextPrefix, output)
     })
@@ -209,7 +320,7 @@ export async function GET(request: Request) {
     const worksheet = workbook.addWorksheet('Full Candidate Export')
 
     worksheet.columns = orderedColumns.map((columnKey) => ({
-      header: columnKey,
+      header: formatColumnHeader(columnKey),
       key: columnKey,
       width: getColumnWidth(columnKey, rows),
     }))
