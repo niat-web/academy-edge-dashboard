@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 interface Student {
@@ -54,6 +54,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [accessChecked, setAccessChecked] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [fullExporting, setFullExporting] = useState(false)
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
     limit: 25,
@@ -180,6 +181,34 @@ export default function Dashboard() {
     }
   }
 
+  const handleFullExport = async () => {
+    setFullExporting(true)
+    try {
+      const response = await fetch('/api/students/export-full')
+
+      if (!response.ok) {
+        throw new Error('Full export failed')
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const date = new Date().toISOString().split('T')[0]
+      a.download = `students-full-export-${date}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (error) {
+      console.error('Error exporting full candidate data:', error)
+      alert('Failed to export full candidate data. Please try again.')
+    } finally {
+      setFullExporting(false)
+    }
+  }
+
   // Check admin access on mount
   useEffect(() => {
     // Check if user has admin session
@@ -291,7 +320,7 @@ export default function Dashboard() {
               </div>
               <button
                 onClick={handleExportToExcel}
-                disabled={exporting || loading}
+                disabled={exporting || fullExporting || loading}
                 className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                 title={nameUidSearch || collegeSearch || evaluationSearch || interviewSearch || verdictSearch ? "Export filtered students" : "Export all students"}
               >
@@ -306,6 +335,26 @@ export default function Dashboard() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     <span>Export to Excel</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleFullExport}
+                disabled={exporting || fullExporting || loading}
+                className="flex items-center gap-2 px-6 py-3 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                title="Export full candidate data for all students"
+              >
+                {fullExporting ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Exporting Full Data...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>Export Full Data</span>
                   </>
                 )}
               </button>
